@@ -19,16 +19,32 @@ cd data && md5sum -c <(awk 'NR>1 {print $3"  "$1}' MANIFEST.tsv)
 |---|---|
 | `Breast80_data.rds.gzip` | Davies et al. (2017), 80 breast WGS, preprocessed to 10 kb bins with 11 covariates |
 | `ICGC_BreastAdenoCA_avg10kb_Mutations_Covariates_Copies.rds.gzip` | ICGC Breast-AdenoCa, same 10 kb grid and covariates |
+| `ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip` | the same cohort at 2 kb, what the applications use — **built by `R/Preprocess_ICGC_BreastAdenoCA.R`**, not shipped |
 | `Breast-AdenoCa_snp.rds.gzip` | ICGC Breast-AdenoCa SNV calls, unbinned |
 | `20170119_final_consensus_copynumber_donor` | PCAWG consensus copy number, per donor |
 | `E028_15_coreMarks_dense.bed` | Roadmap ChromHMM 15-state segmentation, breast epithelium |
 | `hg19-blacklist.v2.bed` | ENCODE blacklist v2, hg19 |
 | `gaps_hg19.bed` | UCSC assembly gaps, hg19 |
 
-The two `*_data.rds.gzip` / `*_Covariates_Copies.rds.gzip` objects are the
-preprocessed cohorts: lists of `gr_Mutations`, `SignalTrack` and `CopyTrack`. They
-were built by the loaders in the predecessor project and will be rebuilt by
-`SignaturePPF_preprocess()` once that exists.
+### Covariate tracks
+
+The eleven genomic covariates, as the bigWigs they are binned from:
+
+| File(s) | Covariate |
+|---|---|
+| `gc_content_1kb.bigWig` | GC |
+| `Breast-Cancer_Methylation.bigWig` | Methyl |
+| `Breast-Cancer_{tissue,cell}_<MARK>_2kb.bigWig` | CTCF, H3K9me3, H3K36me3, H3K27me3, H3K27ac, H3K4me1, H3K4me3 — tissue and cell line are averaged |
+| `wgEncodeUwRepliSeqMcf7WaveSignalRep1.bigWig` | RepliTime |
+| `GSM920557_hg19_wgEncodeSydhNsomeK562Sig_1kb.bigWig` | NuclOccup |
+
+The `*_data.rds.gzip` / `*_Covariates_Copies.rds.gzip` objects are the
+preprocessed cohorts: lists of `gr_Mutations`, `SignalTrack` and `CopyTrack`. The
+2 kb one is built from everything above by
+`Rscript R/Preprocess_ICGC_BreastAdenoCA.R`. The 10 kb one shipped here was
+built by the predecessor project's loader, before the `merge_with_tumor()` fix
+described in the top-level README, so rebuilding it will not reproduce it byte
+for byte.
 
 ## Obtaining the public files
 

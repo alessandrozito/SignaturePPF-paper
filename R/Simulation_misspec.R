@@ -22,20 +22,6 @@
 #            distractors): CompressiveNMF, SignaturePPF MAP and MCMC
 #                                               -> attribution and calibration
 #
-# ------------------------------------------------------------------ PARALLELISM
-# 140 (scenario, replicate) jobs are run 20 at a time, one core each. Nothing is
-# nested: the per-patient loop inside the generator runs sequentially in the
-# worker, and BLAS is held to one thread, so 20 workers means 20 busy cores and
-# no oversubscription.
-#
-# Run it pinned, so the workers cannot wander onto cores you are using:
-#
-#   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-#     taskset -c 0-19 Rscript R/Simulation_misspec.R
-#
-# The thread variables have to be set BEFORE R starts - OpenBLAS reads them when
-# it loads - which is why they are on the command line and not in the script.
-#
 # ---------------------------------------------------------------- RESTARTABILITY
 # Every dataset and every fit is skipped if its file is already on disk, so an
 # interrupted run resumes where it stopped and a stage can be re-run alone:
@@ -46,10 +32,6 @@
 #   Rscript R/Simulation_misspec.R all      # the default
 #
 # A second argument overrides the number of workers (default 20).
-#
-# Each job seeds itself from (scenario, replicate), so a dataset is the same
-# whatever order the jobs run in and whatever the worker count - which an
-# mclapply-level L'Ecuyer stream would not give.
 ################################################################################
 
 suppressPackageStartupMessages({

@@ -41,6 +41,30 @@ one is and where the public ones come from.
 
 ## Analyses
 
+### 0. Build the cohort object
+
+```
+Rscript R/Preprocess_ICGC_BreastAdenoCA.R          # 2 kb, what the applications use
+Rscript R/Preprocess_ICGC_BreastAdenoCA.R 10000    # the coarser grid
+```
+
+Bins the genome, computes usable sequence per bin (assembly gaps and the ENCODE
+blacklist removed), averages the eleven covariate tracks onto those bins,
+winsorises and standardises them, attaches each mutation's covariate values, and
+multiplies copy number by usable sequence to give the exposure the Poisson
+process integrates over. About ten minutes and 8 GB at 2 kb. Skipped if the
+output already exists.
+
+**One fix relative to the predecessor's loader.** It pre-filled the mutation
+covariate matrix with zeros and wrote only the rows that matched a retained bin.
+The covariates are standardised, so a zero row is not "missing" — it reads as a
+perfectly average bin, and mutations in assembly gaps were silently fitted as if
+they sat in one. They are now dropped, which is the only consistent choice: the
+model integrates its intensity over the retained bins, so a mutation outside
+them has no exposure behind it. The consequence is that
+`ICGC_BreastAdenoCA_avg10kb_*.rds.gzip` as shipped was built by the old code and
+rebuilding it here will not reproduce it byte for byte.
+
 ### 1. Replication across two breast cohorts
 
 ```
@@ -129,18 +153,84 @@ part — exactly the part PPF can also express, so the comparison stays
 apples-to-apples, but the strand results are not there to be read. Recovering
 them means redoing the annotation from the raw calls.
 
+### 4. Simulation study under misspecification
+
+```
+Rscript R/Simulation_misspec.R          # generate, fit, score
+Rscript R/Simulation_misspec.R fit      # or one stage at a time
+```
+
+Seven scenarios, each adding one violation of the model's assumptions on top of
+the previous one — noisy patient-specific epigenome, hypermutation hotspots,
+noisy copy number, channel-specific opportunity — with 20 replicates each. The
+last 4000 of 20000 tiles are held out of every fit, so every metric is reported
+in and out of sample. SignaturePPF (MAP and MCMC) is scored against
+CompressiveNMF and SignatureAnalyzer on reconstruction, and against
+CompressiveNMF on attribution and calibration with the signatures held fixed.
+
+140 jobs run 20 at a time, one core each and nothing nested. Run it pinned:
+
+```
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  taskset -c 0-19 Rscript R/Simulation_misspec.R
+```
+
+Every dataset and every fit is skipped if already on disk, so an interrupted run
+resumes. Budget most of a day with the MCMC on; `RUN_MCMC <- FALSE` cuts it to
+about an hour and keeps every metric except the credible-interval ones.
+
+### 5. The two main applications, at 2 kb
+
+```
+Rscript R/Application_denovo.R              # K = 12 estimated from the data
+Rscript R/Application_refit.R               # 13 COSMIC signatures held fixed
+Rscript R/Application_denovo_sensitivity.R  # is the de novo solution stable?
+```
+
+Both applications find a mode and then sample from it: 10000 sweeps, 5000
+burn-in, checkpointed every 100 so an interrupted chain resumes bit-exactly.
+The de novo one searches from three random starts and keeps the highest log
+posterior, since that posterior is multimodal; the refit needs only one, the
+signatures being fixed. Neither prunes the signatures the compressive prior
+parks near `epsilon` — which of them survive is a result, not a setting.
+
+The sensitivity analysis re-fits the de novo mode with `Kmax` at 12/15/20 and
+the coefficient-shrinkage prior at three strengths, then matches each solution
+one-to-one against the reference by cosine and reports whether the same
+COSMIC-matched signatures, activities and coefficients come back. **MAP only** —
+the question is whether the mode moves, and answering it does not need a
+posterior at a day per scenario.
+
+At 2 kb this is 1.39 M bins and 707 k mutations, so the chains are runs of many
+hours. Launch them detached and pinned:
+
+```
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nohup setsid \
+  taskset -c 0-3 Rscript R/Application_denovo.R \
+  > output/Application_denovo/run.log 2>&1 < /dev/null &
+```
+
 ## Layout
 
 ```
 config.R                              paths and shared settings, sourced by every script
 
+R/Preprocess_ICGC_BreastAdenoCA.R         build the binned cohort from raw tracks
+R/Application_denovo.R                    K = 12 estimated de novo, MAP then MCMC
+R/Application_refit.R                     13 COSMIC signatures held fixed
+R/Application_denovo_sensitivity.R        stability to Kmax and the priors, MAP only
 R/Application_replicability_80Breast.R    the two-cohort replication analysis
 R/Application_stability_of_covariates.R   the nested covariate-set analysis
 R/Comparison_TensorSignatures.R       the TensorSignatures comparison, end to end
+R/Simulation_misspec.R                the misspecification study, three stages
 
 R/Utils_functions.R                   cohort -> model form, mutation assignment, intensity
 R/Plot_functions.R                    figure helpers
+R/Preprocess_functions.R              binning, bin weights, covariate tracks
+R/Application_functions.R             MAP restarts, checkpointed MCMC, summaries
 R/TensorSignatures_functions.R        chromatin states, tensor export, comparison
+R/Simulation_functions.R              the generative core of the simulation study
+R/Simulation_functions_misspec.R      misspecification scenarios, fitting, scoring
 
 setup_tensorsig_env.sh                build the TensorSignatures conda environment
 run_ts_sweep.sh                       the TensorSignatures rank sweep, driven by the

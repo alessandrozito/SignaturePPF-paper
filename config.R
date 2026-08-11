@@ -40,6 +40,34 @@ PATH_GAPS      <- file.path(DATA_DIR, "gaps_hg19.bed")
 PATH_ICGC_SNV  <- file.path(DATA_DIR, "Breast-AdenoCa_snp.rds.gzip")
 PATH_ICGC_CN   <- file.path(DATA_DIR, "20170119_final_consensus_copynumber_donor")
 
+## ------------------------------------------------------- covariate bigWigs
+## The eleven genomic covariates, as the tracks they are built from. The seven
+## histone/CTCF marks come in a tissue and a cell-line version and are averaged;
+## the other four have a single source each.
+PATH_GC        <- file.path(DATA_DIR, "gc_content_1kb.bigWig")
+PATH_METHYL    <- file.path(DATA_DIR, "Breast-Cancer_Methylation.bigWig")
+PATH_REPLITIME <- file.path(DATA_DIR, "wgEncodeUwRepliSeqMcf7WaveSignalRep1.bigWig")
+PATH_NUCLEOSOME <- file.path(DATA_DIR,
+                             "GSM920557_hg19_wgEncodeSydhNsomeK562Sig_1kb.bigWig")
+
+CHROMATIN_MARKS <- c("CTCF", "H3K9me3", "H3K36me3", "H3K27me3", "H3K27ac",
+                     "H3K4me1", "H3K4me3")
+path_mark <- function(mark, source = c("tissue", "cell")) {
+  source <- match.arg(source)
+  file.path(DATA_DIR, sprintf("Breast-Cancer_%s_%s_2kb.bigWig", source, mark))
+}
+
+## The preprocessed cohort at the 2 kb resolution the applications run at, built
+## by R/Preprocess_ICGC_BreastAdenoCA.R from everything above.
+PATH_ICGC2KB <- file.path(DATA_DIR,
+                          "ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip")
+
+## Everything the 2 kb preprocessing reads.
+PATHS_PREPROCESS <- c(PATH_ICGC_SNV, PATH_ICGC_CN, PATH_BLACKLIST, PATH_GAPS,
+                      PATH_GC, PATH_METHYL, PATH_REPLITIME, PATH_NUCLEOSOME,
+                      vapply(CHROMATIN_MARKS, path_mark, "", source = "tissue"),
+                      vapply(CHROMATIN_MARKS, path_mark, "", source = "cell"))
+
 ## Fail early and by name, rather than three steps into a pipeline.
 check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,
                                    PATH_BLACKLIST, PATH_GAPS, PATH_ICGC_SNV,
@@ -57,7 +85,11 @@ DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
 DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "Comparison_TensorSignatures")
 DIR_STABILITY   <- file.path(OUTPUT_DIR, "Covariate_stability")
 DIR_SIM_MISSPEC <- file.path(OUTPUT_DIR, "Simulation_misspec")
-for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC)) {
+DIR_DENOVO      <- file.path(OUTPUT_DIR, "Application_denovo")
+DIR_REFIT       <- file.path(OUTPUT_DIR, "Application_refit")
+DIR_SENSITIVITY <- file.path(OUTPUT_DIR, "Application_denovo_sensitivity")
+for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC,
+            DIR_DENOVO, DIR_REFIT, DIR_SENSITIVITY)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
 
@@ -73,6 +105,15 @@ PATH_OPPORTUNITY <- file.path(OUTPUT_DIR, "mutation_opportunities_hg19.rds")
 SIGS_TO_USE <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
                  "SBS20", "SBS26", "SBS17a", "SBS17b", "SBS18", "SBS30",
                  "SBS40a", "SBS44")
+
+## The catalogue the main refit application (Section 5) holds fixed. Thirteen,
+## not the fifteen above: SBS40a and SBS44 were added later, for the two-cohort
+## replication, where the 80-cancer cohort was selected to contain MMRd cases.
+SIGS_REFIT <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
+                "SBS20", "SBS26", "SBS17a", "SBS17b", "SBS18", "SBS30")
+
+## Upper bound on the number of signatures in the de novo application.
+K_DENOVO <- 12
 
 SEED <- 10L
 
@@ -100,6 +141,8 @@ TENSORSIG_PYTHON <- Sys.getenv(
 ## would also source the analysis scripts.
 FUNCTION_FILES <- c("Utils_functions.R",
                     "Plot_functions.R",
+                    "Preprocess_functions.R",
+                    "Application_functions.R",
                     "TensorSignatures_functions.R")
 
 load_functions <- function() {
