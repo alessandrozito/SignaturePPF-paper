@@ -71,27 +71,6 @@ SIGS_TO_USE <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
 SEED <- 10L
 
 ## ------------------------------------------------------------- BLAS threads
-## Capped to one thread by default, which is faster here than the unlimited
-## default and dramatically cheaper.
-##
-## The linear algebra in this model is tall-and-skinny: the largest product
-## reduces ~280k bins down to a 113 x 15 result, and p = 11. There is almost
-## nothing for threads to split, so per-call launch and sync overhead dominates.
-## Measured on the ICGC 10 kb refit, per iteration:
-##
-##     threads    wall      CPU     CPU per wall-second
-##           1    3.10s    3.09s    1.0
-##           8    2.66s   16.27s    6.1
-##          24    3.15s   33.61s   10.7      <- slower than 1, for 11x the CPU
-##
-## So one thread costs at most ~15% wall time against the best setting, and
-## frees the machine to run eight or ten fits at once instead of one. It also
-## avoids the oversubscription thrash that occurs when several R sessions each
-## spawn one thread per core.
-##
-## Set at RUNTIME rather than through Sys.setenv(): OpenBLAS reads
-## OPENBLAS_NUM_THREADS when it is loaded, at R startup, so setting the variable
-## from inside a script is too late to have any effect.
 BLAS_THREADS <- as.integer(Sys.getenv("SIGNATUREPPF_BLAS_THREADS", unset = "1"))
 if (BLAS_THREADS > 0) {
   if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {

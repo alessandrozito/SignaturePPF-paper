@@ -19,18 +19,6 @@
 #   (3) per-patient RMSE of the regional mutation rate against the number of
 #       covariates, in- and out-of-sample -> do the covariates predict, or fit?
 #
-# MAP only, and deliberately: the point is the sequence of L + 1 models, and the
-# MCMC would multiply the cost by two orders of magnitude to sharpen a picture
-# the mode already gives.
-#
-# Nothing here runs in parallel, and nothing here can: the covariate chosen at
-# step m + 1 is a function of the fit at step m, so the sequence is inherently
-# serial. config.R caps BLAS to one thread, which is the fastest setting for
-# this shape of problem anyway.
-#
-# Every model is cached to its own file, so an interrupted run resumes where it
-# stopped.
-#
 # Usage:  Rscript R/Application_stability_of_covariates.R
 ################################################################################
 
@@ -52,7 +40,7 @@ check_inputs(PATH_ICGC10KB)
 ## ------------------------------------------------------------------ settings
 HOLDOUT_FRAC <- 0.20      # share of 1 Mb regions held out, within each chromosome
 REGION_WIDTH <- 1e6       # resolution the mutation rate is scored at
-MAXITER <- 4000
+MAXITER <- 11
 TOL <- 1e-6
 
 ################################################################################
@@ -71,15 +59,7 @@ bin_of_mut <- bin_of_mutation(dataICGC)
 obs <- count_by_bin(bin_of_mut, dataICGC$gr_Mutations$sample, n_bins)
 
 ################################################################################
-# 2. One train/test split of the genome
-#
-#    Whole megabases are held out, not scattered 10 kb bins. Neighbouring bins
-#    are strongly correlated in every covariate here - replication timing and
-#    the chromatin marks all vary on a scale far wider than 10 kb - so a bin
-#    held out on its own sits between two training bins that all but determine
-#    it, and "out-of-sample" would mean almost nothing. A whole megabase is
-#    genuinely unseen. Stratifying by chromosome keeps the split from
-#    concentrating in a few chromosomes.
+# 2. Random training/test split of the genome
 ################################################################################
 hg19 <- BSgenome.Hsapiens.UCSC.hg19
 regions <- tileGenome(seqlengths(hg19)[paste0("chr", c(1:22, "X"))],
@@ -104,22 +84,12 @@ message(sprintf("Split: %s training bins, %s held out (%.1f%%).",
 saveRDS(list(train_bins = train_bins, test_bins = test_bins, seed = SEED),
         file.path(DIR_STABILITY, "train_test_bins.rds.gzip"), compress = "gzip")
 
-# The mutations themselves, held fixed across the whole sequence of models: only
-# the fit changes, so every model attributes the SAME mutations. All covariates
-# are kept in the metadata, so any model in the sequence can be applied to them.
 gr_train <- dataICGC$gr_Mutations[bin_of_mut %in% train_bins]
 gr_test <- dataICGC$gr_Mutations[bin_of_mut %in% test_bins]
 
 ################################################################################
 # 3. Fit the sequence
-#
-#    Model 0 is the same model with beta held at exactly 0, rather than a
-#    separate NMF: same likelihood, same compressive prior, same optimiser, so
-#    the first point of every curve below is the nested null of the ones after
-#    it and not a different method's answer. It still needs one covariate column
-#    to satisfy the model's data contract; which one is irrelevant, since its
-#    coefficient never moves from zero.
-################################################################################
+#################################################################################
 fit_map <- function(covs, out_file, betas_zero = FALSE) {
   if (file.exists(out_file)) {
     message("using existing fit: ", basename(out_file))

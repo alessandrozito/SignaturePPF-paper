@@ -121,7 +121,6 @@ if (file.exists(PATH_PPF_FIT)) {
   saveRDS(fit, PATH_PPF_FIT, compress = "gzip")
 }
 print(fit)
-plot(fit, what = "betas") + plot(fit, what = "mu")
 plot(fit)
 
 ref_match <- match_to_cosmic(fit$Signatures)
@@ -199,6 +198,7 @@ p_sweep <- ggplot(sweep_long, aes(rank, value)) +
        title = "TensorSignatures rank selection",
        subtitle = paste0("selected rank ", rank, " (lowest AIC)")) +
   theme_bw()
+p_sweep
 
 ################################################################################
 # 6. Compare: signature spectra
@@ -229,13 +229,9 @@ write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
 # The same points cut two ways, side by side: one panel per signature (does the
 # pair agree on where this process sits along the genome?) and one panel per
 # chromatin state (do the methods agree on what this piece of chromatin does?).
-p_by_signature <- plot_chromatin_effects(cmp, by = "signature")
-p_by_state <- plot_chromatin_effects(cmp, by = "state")
+p_by_signature <- plot_chromatin_effects(cmp, by = "signature", ncol = 5)
+p_by_state <- plot_chromatin_effects(cmp, by = "state", ncol = 5)
 
-ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_signature.pdf"),
-       p_by_signature, width = 12, height = 9)
-ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_state.pdf"),
-       p_by_state, width = 12, height = 9)
 ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects.pdf"),
        p_by_signature + p_by_state, width = 22, height = 9)
 
@@ -245,9 +241,6 @@ effect_agreement <- data.frame(
   pearson = cor(cmp$beta, cmp$ts_logratio),
   spearman = cor(cmp$beta, cmp$ts_logratio, method = "spearman"),
   sign_agreement = mean(sign(cmp$beta) == sign(cmp$ts_logratio)))
-write.csv(effect_agreement,
-          file.path(DIR_TENSORSIG, "chromatin_effect_agreement.csv"),
-          row.names = FALSE)
 print(effect_agreement)
 
 ################################################################################

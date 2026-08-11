@@ -20,6 +20,36 @@ SIG_COLS <- c(
 )
 
 
+#' Colours for the alluvial diagrams
+#'
+#' Deliberately NOT [SIG_COLS]. The alluvial reads as stacked bands rather than
+#' as separated points, so what matters is that vertically adjacent signatures
+#' separate; elsewhere the grouping by aetiology is worth more. Kept as its own
+#' table so the two can be tuned independently.
+#'
+#' The last four are additions - the original palette named eleven signatures,
+#' and all fifteen are drawn here since the refit holds them all. Greens because
+#' nothing else in the table is green, and a dark pink for SBS17a so it pairs
+#' with SBS17b without colliding with SBS1.
+ALLUVIAL_SIG_COLS <- c(
+  SBS13  = "darkblue",
+  SBS5   = "#4959C7",
+  SBS40a = "skyblue1",
+  SBS2   = "#F2AB67",
+  SBS3   = "#F6C866",
+  SBS1   = "#ED7470",
+  SBS18  = "brown",
+  SBS8   = "black",
+  SBS17b = "pink",
+  SBS26  = "lightgray",
+  SBS30  = "red",
+  SBS6   = "#33A02C",
+  SBS20  = "#7FBC41",
+  SBS44  = "#00694E",
+  SBS17a = "#E7298A"
+)
+
+
 #' Colours for a set of signatures, falling back for anything not in SIG_COLS
 #'
 #' SIG_COLS only names the COSMIC signatures the breast analyses report. A de
@@ -207,9 +237,17 @@ plot_beta_path <- function(fits, covariate_order, mu_cutoff = 0.05) {
 #'   the signature each model attributes each mutation to.
 #' @param labels Column labels, length `ncol(A)`.
 #' @param levs Signature order for the strata and the legend.
-plot_assignment_alluvial <- function(A, labels, levs = NULL) {
+#' @param cols Named colours. Anything in `levs` the table does not name falls
+#'   back to a generated colour rather than to grey with a warning.
+plot_assignment_alluvial <- function(A, labels, levs = NULL,
+                                     cols = ALLUVIAL_SIG_COLS) {
   if (is.null(levs)) levs <- sort(unique(as.vector(A)))
   n_models <- ncol(A)
+
+  pal <- cols[levs]
+  gap <- is.na(pal)
+  if (any(gap)) pal[gap] <- grDevices::hcl.colors(sum(gap), "Dark 3")
+  pal <- stats::setNames(unname(pal), levs)
 
   # Mutations sharing a whole path through the sequence are interchangeable, so
   # they are collapsed to one ribbon carrying a count. Without this the diagram
@@ -239,8 +277,7 @@ plot_assignment_alluvial <- function(A, labels, levs = NULL) {
     ggplot2::geom_text(data = lab_df, inherit.aes = FALSE,
                        ggplot2::aes(x = .data$x, y = .data$y, label = .data$lab),
                        vjust = -0.4, size = 3) +
-    ggplot2::scale_fill_manual(values = sig_palette(levs), name = "Signature",
-                               drop = FALSE) +
+    ggplot2::scale_fill_manual(values = pal, name = "Signature", drop = FALSE) +
     ggplot2::scale_x_continuous(breaks = seq_len(n_models), labels = labels) +
     ggplot2::scale_y_continuous(labels = scales::comma,
                                 expand = ggplot2::expansion(mult = c(0.02, 0.08))) +
