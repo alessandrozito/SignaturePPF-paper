@@ -1,7 +1,7 @@
 ################################################################################
 # Refit application: ICGC Breast-AdenoCa at 2 kb, signatures held fixed
 #
-# The thirteen COSMIC signatures with support in breast cohorts are held at their
+# The fifteen COSMIC signatures with support in breast cohorts are held at their
 # catalogue values and only the activities and the covariate coefficients are
 # estimated.
 #
@@ -11,7 +11,7 @@
 #
 # The compressive prior still applies, so a catalogue signature the cohort does
 # not support is parked near epsilon. Those are NOT pruned before sampling:
-# which of the thirteen the data actually supports is a result, not a setting.
+# which of the fifteen the data actually supports is a result, not a setting.
 #
 # Usage:  Rscript R/Application_refit.R
 #
@@ -48,9 +48,9 @@ message(sprintf("%s mutations | %d samples | %d covariates | %s bins",
                 format(v$N, big.mark = ","), v$J, v$p,
                 format(v$nbins, big.mark = ",")))
 
-CosmicSigs <- COSMIC_v3.4_SBS96_GRCh37[, SIGS_REFIT]
+CosmicSigs <- COSMIC_v3.4_SBS96_GRCh37[, SIGS_TO_USE]
 message("refitting ", ncol(CosmicSigs), " fixed signatures: ",
-        paste(SIGS_REFIT, collapse = ", "))
+        paste(SIGS_TO_USE, collapse = ", "))
 
 prior <- SignaturePPF_prior()
 
@@ -95,10 +95,10 @@ saveRDS(results, file.path(DIR_REFIT, "resultsMCMC_refit.rds.gzip"),
         compress = "gzip")
 
 mu_tbl <- data.frame(
-  signature = SIGS_REFIT,
-  mu = as.numeric(fit$Mu[SIGS_REFIT]),
-  mu_low = as.numeric(results$Mu$lowCI[SIGS_REFIT]),
-  mu_high = as.numeric(results$Mu$highCI[SIGS_REFIT]))
+  signature = SIGS_TO_USE,
+  mu = as.numeric(fit$Mu[SIGS_TO_USE]),
+  mu_low = as.numeric(results$Mu$lowCI[SIGS_TO_USE]),
+  mu_high = as.numeric(results$Mu$highCI[SIGS_TO_USE]))
 mu_tbl$supported <- mu_tbl$mu > 10 * fit$prior$epsilon
 mu_tbl <- mu_tbl[order(-mu_tbl$mu), ]
 write.csv(mu_tbl, file.path(DIR_REFIT, "signature_summary.csv"), row.names = FALSE)

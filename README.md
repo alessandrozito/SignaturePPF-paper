@@ -183,7 +183,7 @@ about an hour and keeps every metric except the credible-interval ones.
 
 ```
 Rscript R/Application_denovo.R              # K = 12 estimated from the data
-Rscript R/Application_refit.R               # 13 COSMIC signatures held fixed
+Rscript R/Application_refit.R               # 15 COSMIC signatures held fixed
 Rscript R/Application_denovo_sensitivity.R  # is the de novo solution stable?
 ```
 
@@ -217,7 +217,7 @@ config.R                              paths and shared settings, sourced by ever
 
 R/Preprocess_ICGC_BreastAdenoCA.R         build the binned cohort from raw tracks
 R/Application_denovo.R                    K = 12 estimated de novo, MAP then MCMC
-R/Application_refit.R                     13 COSMIC signatures held fixed
+R/Application_refit.R                     15 COSMIC signatures held fixed
 R/Application_denovo_sensitivity.R        stability to Kmax and the priors, MAP only
 R/Application_replicability_80Breast.R    the two-cohort replication analysis
 R/Application_stability_of_covariates.R   the nested covariate-set analysis

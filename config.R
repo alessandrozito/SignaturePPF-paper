@@ -99,18 +99,18 @@ for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC,
 PATH_OPPORTUNITY <- file.path(OUTPUT_DIR, "mutation_opportunities_hg19.rds")
 
 ## ------------------------------------------------------------------ analysis
-## The reference signatures refitted in the replication analysis. Chosen in the
+## The reference catalogue held fixed wherever signatures are not estimated: the
+## main refit application AND the two-cohort replication. Chosen in the
 ## exploratory pass as the COSMIC signatures with support in breast cohorts, plus
-## the MMRd set (SBS6/20/26/44) the 80-cohort was selected to contain.
+## the MMRd set (SBS6/20/26/44) the 80-cancer cohort was selected to contain.
+##
+## One list for both on purpose. The compressive prior still applies, so a
+## signature the cohort does not support is parked near epsilon rather than
+## forced onto the data - which means handing both analyses the same fifteen
+## costs nothing and makes their relevance weights directly comparable.
 SIGS_TO_USE <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
                  "SBS20", "SBS26", "SBS17a", "SBS17b", "SBS18", "SBS30",
                  "SBS40a", "SBS44")
-
-## The catalogue the main refit application (Section 5) holds fixed. Thirteen,
-## not the fifteen above: SBS40a and SBS44 were added later, for the two-cohort
-## replication, where the 80-cancer cohort was selected to contain MMRd cases.
-SIGS_REFIT <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
-                "SBS20", "SBS26", "SBS17a", "SBS17b", "SBS18", "SBS30")
 
 ## Upper bound on the number of signatures in the de novo application.
 K_DENOVO <- 12
