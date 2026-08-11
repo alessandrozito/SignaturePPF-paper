@@ -40,7 +40,7 @@ check_inputs(PATH_ICGC10KB)
 ## ------------------------------------------------------------------ settings
 HOLDOUT_FRAC <- 0.20      # share of 1 Mb regions held out, within each chromosome
 REGION_WIDTH <- 1e6       # resolution the mutation rate is scored at
-MAXITER <- 11
+MAXITER <- 4000
 TOL <- 1e-6
 
 ################################################################################

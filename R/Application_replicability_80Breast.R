@@ -44,7 +44,7 @@ CosmicSigs <- COSMIC_v3.4_SBS96_GRCh37[, SIGS_TO_USE]
 #
 #    We keep `sigs_fixed = TRUE`
 ################################################################################
-controls <- SignaturePPF_control(maxiter = 200, tol = 1e-6)
+controls <- SignaturePPF_control(maxiter = 4000, tol = 1e-6)
 
 fit_ppf <- function(data, out_file) {
   if (file.exists(out_file)) {

@@ -56,9 +56,15 @@ check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,
 DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
 DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "Comparison_TensorSignatures")
 DIR_STABILITY   <- file.path(OUTPUT_DIR, "Covariate_stability")
-for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY)) {
+DIR_SIM_MISSPEC <- file.path(OUTPUT_DIR, "Simulation_misspec")
+for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
+
+## The 96 hg19 trinucleotide opportunities, computed once by the simulation
+## study and cached. A derived quantity, so it lives in output/ rather than
+## data/ - nothing outside the pipeline is needed to rebuild it.
+PATH_OPPORTUNITY <- file.path(OUTPUT_DIR, "mutation_opportunities_hg19.rds")
 
 ## ------------------------------------------------------------------ analysis
 ## The reference signatures refitted in the replication analysis. Chosen in the
