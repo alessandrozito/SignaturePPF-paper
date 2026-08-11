@@ -12,17 +12,17 @@
 # fits never overwrite each other, and ranks that already have a complete fit are
 # skipped - the sweep is restartable.
 #
-# Usage:   bash/run_ts_sweep.sh [rank ...]        (default: 4 5 6 7 8 9 10 11 12)
+# Usage:   run_ts_sweep.sh [rank ...]        (default: 4 5 6 7 8 9 10 11 12)
 #
 # Long runs:
-#   nohup bash/run_ts_sweep.sh > output/02_tensorsignatures/ts_sweep.log 2>&1 &
+#   nohup run_ts_sweep.sh > output/Comparison_TensorSignatures/ts_sweep.log 2>&1 &
 set -u
 
 PAPER="${SIGNATUREPPF_PAPER:-$HOME/SignaturePPF-paper}"
 PY="${TENSORSIG_PYTHON:-$HOME/miniconda3/envs/tensorsig/bin/python}"
 SCRIPT="$PAPER/python/run_tensorsignatures.py"
 TAG="${TS_TAG:-icgc_chromatin}"
-BASE="$PAPER/output/02_tensorsignatures/$TAG"
+BASE="$PAPER/output/Comparison_TensorSignatures/$TAG"
 
 RANKS=("$@")
 if [ ${#RANKS[@]} -eq 0 ]; then RANKS=(4 5 6 7 8 9 10 11 12); fi
@@ -31,8 +31,8 @@ for f in "$PY" "$SCRIPT" "$BASE/snv_counts_long.tsv.gz"; do
   if [ ! -e "$f" ]; then
     echo "MISSING: $f"
     case "$f" in
-      *python)     echo "  -> run bash/setup_tensorsig_env.sh" ;;
-      *.tsv.gz)    echo "  -> run Rscript R/02_tensorsignatures_prepare.R" ;;
+      *python)     echo "  -> run setup_tensorsig_env.sh" ;;
+      *.tsv.gz)    echo "  -> run Rscript R/Load_ChromatinStates_ICGC.R" ;;
     esac
     exit 1
   fi
@@ -70,4 +70,4 @@ for d in "$BASE"/rank*/; do
 done
 
 echo
-echo "Next: Rscript R/03_tensorsignatures_compare.R"
+echo "Next: Rscript R/Comparison_TensorSignatures.R"

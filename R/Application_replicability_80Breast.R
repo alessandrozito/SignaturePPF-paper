@@ -18,7 +18,7 @@
 #
 # Runtime: a few minutes per cohort. Nothing here needs the cluster.
 #
-# Usage:  Rscript R/01_replication_Breast80_vs_ICGC.R
+# Usage:  Rscript R/Application_replicability_80Breast.R
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -114,7 +114,7 @@ print(mu_table)
 # 4. Figures
 ################################################################################
 p_burden <- plot_burden_along_genome(list(Breast80 = data80, BreastICGC = dataICGC))
-ggsave(file.path(FIG_DIR, "01_burden_along_genome.pdf"), p_burden,
+ggsave(file.path(FIG_DIR, "Replication_burden_along_genome.pdf"), p_burden,
        width = 11, height = 3.2)
 
 # --- per-cohort coefficient heatmaps, each beside its relevance-weight column.
@@ -128,19 +128,19 @@ panel <- function(fit, data) {
 p_80 <- panel(fitPPF_80, data80)
 p_icgc <- panel(fitPPF_ICGC, dataICGC)
 
-ggsave(file.path(FIG_DIR, "01_betas_Breast80.pdf"), p_80, width = 9, height = 6)
-ggsave(file.path(FIG_DIR, "01_betas_BreastICGC.pdf"), p_icgc, width = 9, height = 6)
+ggsave(file.path(FIG_DIR, "Replication_betas_Breast80.pdf"), p_80, width = 9, height = 6)
+ggsave(file.path(FIG_DIR, "Replication_betas_BreastICGC.pdf"), p_icgc, width = 9, height = 6)
 
 # --- the replication figure itself
 p_rep <- plot_beta_replication(fitPPF_80, fitPPF_ICGC,
                                label_x = "80 Breast", label_y = "ICGC")
-ggsave(file.path(FIG_DIR, "01_beta_replication.pdf"), p_rep,
+ggsave(file.path(FIG_DIR, "Replication_betas_scatter.pdf"), p_rep,
        width = 7, height = 5.5)
 
 # --- and the difference, on the same capped scale as the two panels
 p_diff <- plot_Betas(fitPPF_80$Betas - fitPPF_ICGC$Betas, cap = 1) +
   ggtitle("Breast80 - ICGC")
-ggsave(file.path(FIG_DIR, "01_beta_difference.pdf"), p_diff, width = 7, height = 6)
+ggsave(file.path(FIG_DIR, "Replication_betas_difference.pdf"), p_diff, width = 7, height = 6)
 
 ################################################################################
 # 5. Agreement summary

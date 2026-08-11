@@ -277,7 +277,7 @@ export_ts_chromatin <- function(dat, out_dir = DIR_TENSORSIG,
     "state axis: the 15 ChromHMM core states (see state_key.tsv);",
     "  the bins ARE the ChromHMM segments, so the assignment is exact",
     "strand axes: uninformative (all mass at index 3) by design - see the",
-    "  limitation note at the top of R/functions/tensorsignatures.R",
+    "  limitation note at the top of R/TensorSignatures_functions.R",
     "state_exposure.tsv: bin_weight * CN/2 summed per (state, sample)",
     sprintf("total counts: %d", sum(cnt$count))),
     file.path(d, "README.txt"))
@@ -294,7 +294,7 @@ read_ts_fit <- function(dir) {
   f_amp <- file.path(dir, "ts_state_amplitudes.tsv")
   if (!file.exists(f_sig)) {
     warning("no TensorSignatures output in ", dir,
-            " - run the Python step first (bash/run_ts_sweep.sh)")
+            " - run the Python step first (run_ts_sweep.sh)")
     return(NULL)
   }
   sig <- as.data.frame(readr::read_tsv(f_sig, show_col_types = FALSE))

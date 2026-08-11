@@ -75,7 +75,7 @@ import tensorsignatures as ts
 DEFAULT_DIR = os.path.join(
     os.environ.get("SIGNATUREPPF_PAPER",
                    os.path.expanduser("~/SignaturePPF-paper")),
-    "output", "02_tensorsignatures")
+    "output", "Comparison_TensorSignatures")
 
 # indices of the "unknown" strand state on the two strand axes (0-based)
 TX_UNK, REP_UNK = 2, 2

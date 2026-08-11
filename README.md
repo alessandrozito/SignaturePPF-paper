@@ -37,7 +37,7 @@ exists and those objects are rebuilt into `data/`.
 ### 1. Replication across two breast cohorts
 
 ```
-Rscript R/01_replication_Breast80_vs_ICGC.R
+Rscript R/Application_replicability_80Breast.R
 ```
 
 Refits the same fixed COSMIC signature set to two independent breast cohorts —
@@ -53,10 +53,10 @@ MAP only. Runtime a few minutes per cohort.
 Three steps, because the middle one runs under a different Python.
 
 ```
-Rscript R/02_tensorsignatures_prepare.R    # build data, fit PPF, export tensor
-bash/setup_tensorsig_env.sh                # once: build the conda environment
-bash/run_ts_sweep.sh                       # fit TensorSignatures over ranks
-Rscript R/03_tensorsignatures_compare.R    # import and compare
+Rscript R/Load_ChromatinStates_ICGC.R     # build data, fit PPF, export tensor
+./setup_tensorsig_env.sh                  # once: build the conda environment
+./run_ts_sweep.sh                         # fit TensorSignatures over ranks
+Rscript R/Comparison_TensorSignatures.R   # import and compare
 ```
 
 Both methods are fitted to the same mutations on the same genomic partition, the
@@ -74,7 +74,7 @@ position within a state.
 
 **TensorSignatures needs its own environment.** Version 0.5.0 pins
 `tensorflow <= 1.15`, whose wheels stop at Python 3.7, so it cannot share an
-interpreter with anything modern. `bash/setup_tensorsig_env.sh` builds it under
+interpreter with anything modern. `setup_tensorsig_env.sh` builds it under
 `$HOME` with no root access; `rm -rf ~/miniconda3` undoes it.
 
 **Do not report TensorSignatures strand-asymmetry results from this pipeline.**
@@ -88,19 +88,27 @@ them means redoing the annotation from the raw calls.
 ## Layout
 
 ```
-config.R                    paths and shared settings, sourced by every script
-R/functions/                helpers, loaded by load_functions()
-  data_adapters.R           cohort -> model form; intensity reconstruction
-  assignment.R              per-mutation signature attribution
-  plot_helpers.R            figure helpers
-  tensorsignatures.R        chromatin states, tensor export, comparison
-R/0*.R                      analysis scripts, numbered in run order
-python/                     TensorSignatures runner (Python 3.7 environment)
-bash/                       environment setup and the rank sweep
-data/                       inputs (not tracked)
-output/                     results (not tracked)
-figures/                    figures (not tracked)
+config.R                              paths and shared settings, sourced by every script
+
+R/Load_ChromatinStates_ICGC.R         build the chromatin dataset, fit PPF, export the tensor
+R/Application_replicability_80Breast.R  the two-cohort replication analysis
+R/Comparison_TensorSignatures.R       import the TensorSignatures fits and compare
+
+R/Utils_functions.R                   cohort -> model form, mutation assignment, intensity
+R/Plot_functions.R                    figure helpers
+R/TensorSignatures_functions.R        chromatin states, tensor export, comparison
+
+setup_tensorsig_env.sh                build the TensorSignatures conda environment
+run_ts_sweep.sh                       the TensorSignatures rank sweep
+python/run_tensorsignatures.py        run under that environment, not the system Python
+
+data/                                 inputs (not tracked)
+output/                               results (not tracked)
+figures/                              figures (not tracked)
 ```
+
+`R/*_functions.R` are the helpers, loaded together by `load_functions()`; the
+other three scripts are the analyses.
 
 `data/`, `output/` and `figures/` are gitignored: the cohort data is
 access-controlled and cannot be redistributed, and everything else is
@@ -110,14 +118,14 @@ reproducible from the scripts.
 
 | Figure | Produced by |
 |---|---|
-| `01_burden_along_genome.pdf` | `R/01_replication_Breast80_vs_ICGC.R` |
-| `01_betas_Breast80.pdf`, `01_betas_BreastICGC.pdf` | `R/01_replication_Breast80_vs_ICGC.R` |
-| `01_beta_replication.pdf`, `01_beta_difference.pdf` | `R/01_replication_Breast80_vs_ICGC.R` |
-| `02_ppf_chromatin_betas.pdf` | `R/02_tensorsignatures_prepare.R` |
-| `03_ts_rank_sweep.pdf` | `R/03_tensorsignatures_compare.R` |
-| `03_cosine_to_cosmic.pdf` | `R/03_tensorsignatures_compare.R` |
-| `03_chromatin_effects_*.pdf` | `R/03_tensorsignatures_compare.R` |
-| `03_mutation_rate_along_genome.pdf` | `R/03_tensorsignatures_compare.R` |
+| `Replication_burden_along_genome.pdf` | `R/Application_replicability_80Breast.R` |
+| `Replication_betas_Breast80.pdf`, `Replication_betas_BreastICGC.pdf` | `R/Application_replicability_80Breast.R` |
+| `Replication_betas_scatter.pdf`, `Replication_betas_difference.pdf` | `R/Application_replicability_80Breast.R` |
+| `TensorSignatures_PPF_chromatin_betas.pdf` | `R/Load_ChromatinStates_ICGC.R` |
+| `TensorSignatures_rank_sweep.pdf` | `R/Comparison_TensorSignatures.R` |
+| `TensorSignatures_cosine_to_cosmic.pdf` | `R/Comparison_TensorSignatures.R` |
+| `TensorSignatures_chromatin_effects_pooled.pdf`, `..._by_signature.pdf` | `R/Comparison_TensorSignatures.R` |
+| `TensorSignatures_mutation_rate_along_genome.pdf` | `R/Comparison_TensorSignatures.R` |
 
 ## Note on the predecessor package
 

@@ -13,7 +13,7 @@
 #   rm -rf ~/miniconda3
 # The system Python and R installations are untouched.
 #
-# Usage:  bash/setup_tensorsig_env.sh
+# Usage:  setup_tensorsig_env.sh
 set -euo pipefail
 
 CONDA_ROOT="${CONDA_ROOT:-$HOME/miniconda3}"
@@ -68,5 +68,5 @@ Environment ready:  $ENV_PY
 Versions used for the results reported in the paper:
   tensorsignatures 0.5.0 | tensorflow 1.15.0 | numpy 1.16.6 | protobuf 3.20.3
 
-Next:  bash/run_ts_sweep.sh
+Next:  run_ts_sweep.sh
 EOF

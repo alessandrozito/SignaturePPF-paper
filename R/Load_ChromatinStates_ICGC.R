@@ -1,5 +1,5 @@
 ################################################################################
-# TensorSignatures comparison, step 1 of 3: build the shared dataset.
+# TensorSignatures comparison: build the dataset both methods are fitted to.
 #
 # Both methods are fitted to the SAME data on the SAME genomic partition - the
 # ChromHMM 15-state annotation of breast epithelium (Roadmap E028). The bins ARE
@@ -10,16 +10,17 @@
 # reference, which makes each beta the log enrichment relative to Quies - the
 # same quantity TensorSignatures reports as a state amplitude.
 #
-# Steps:
-#   1. R : this script    - build the dataset, fit SignaturePPF, export the tensor
-#   2. sh: bash/run_ts_sweep.sh - fit TensorSignatures over a range of ranks
-#   3. R : 03_tensorsignatures_compare.R - import and compare
+# The pipeline, in order:
+#   R/Load_ChromatinStates_ICGC.R    this script: dataset, PPF fit, tensor export
+#   setup_tensorsig_env.sh           once: build the Python 3.7 environment
+#   run_ts_sweep.sh                  fit TensorSignatures over a range of ranks
+#   R/Comparison_TensorSignatures.R  import the fits and compare
 #
 # Runtime: the ChromHMM segmentation is ~600k segments and copy number is built
 # per sample, so step 1 takes tens of minutes and a few GB. Everything is cached
 # to disk, so rerunning is cheap.
 #
-# Usage:  Rscript R/02_tensorsignatures_prepare.R
+# Usage:  Rscript R/Load_ChromatinStates_ICGC.R
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -101,7 +102,7 @@ write.csv(ref_match, file.path(DIR_TENSORSIG, "ppf_signature_cosmic_match.csv"),
           row.names = FALSE)
 print(ref_match)
 
-ggsave(file.path(FIG_DIR, "02_ppf_chromatin_betas.pdf"),
+ggsave(file.path(FIG_DIR, "TensorSignatures_PPF_chromatin_betas.pdf"),
        plot_chromatin_betas(fit, reference = REFERENCE_STATE),
        width = 11, height = 8)
 
@@ -111,6 +112,6 @@ ggsave(file.path(FIG_DIR, "02_ppf_chromatin_betas.pdf"),
 ts_dir <- export_ts_chromatin(dat, out_dir = DIR_TENSORSIG, tag = TAG)
 
 message("\nNext: fit TensorSignatures with\n",
-        "  bash/setup_tensorsig_env.sh      # once\n",
-        "  bash/run_ts_sweep.sh             # rank sweep\n",
-        "then run R/03_tensorsignatures_compare.R")
+        "  setup_tensorsig_env.sh      # once\n",
+        "  run_ts_sweep.sh             # rank sweep\n",
+        "then run R/Comparison_TensorSignatures.R")

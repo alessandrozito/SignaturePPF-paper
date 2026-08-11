@@ -1,8 +1,8 @@
 ################################################################################
-# TensorSignatures comparison, step 3 of 3: import the fits and compare.
+# TensorSignatures comparison: import the fits and compare against SignaturePPF.
 #
-# Requires R/02_tensorsignatures_prepare.R and then the Python rank sweep
-# (bash/run_ts_sweep.sh) to have run.
+# Requires R/Load_ChromatinStates_ICGC.R and then the rank sweep (run_ts_sweep.sh)
+# to have run.
 #
 # Three comparisons, in increasing order of what they actually test:
 #
@@ -16,7 +16,7 @@
 #                  TensorSignatures can only place a total per (state, sample)
 #                  and has no notion of position within a state.
 #
-# Usage:  Rscript R/03_tensorsignatures_compare.R [rank]
+# Usage:  Rscript R/Comparison_TensorSignatures.R [rank]
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -49,7 +49,7 @@ fit <- readRDS(file.path(DIR_TENSORSIG, "fit_ppf_chromatin.rds.gzip"))
 sweep <- ts_sweep_summary(TS_BASE)
 if (is.null(sweep)) {
   stop("no TensorSignatures fits under ", TS_BASE,
-       "\n  Run bash/run_ts_sweep.sh first.")
+       "\n  Run run_ts_sweep.sh first.")
 }
 write.csv(sweep, file.path(DIR_TENSORSIG, "ts_rank_sweep.csv"), row.names = FALSE)
 print(sweep)
@@ -68,7 +68,7 @@ p_sweep <- ggplot(sweep, aes(rank, BIC)) +
   labs(x = "Rank (number of signatures)", y = "BIC",
        title = "TensorSignatures rank selection") +
   theme_bw()
-ggsave(file.path(FIG_DIR, "03_ts_rank_sweep.pdf"), p_sweep, width = 5, height = 3.5)
+ggsave(file.path(FIG_DIR, "TensorSignatures_rank_sweep.pdf"), p_sweep, width = 5, height = 3.5)
 
 ################################################################################
 # 2. Spectra
@@ -96,7 +96,7 @@ p_cos <- ggplot(cosmic_cmp, aes(method, cosine)) +
   geom_jitter(width = 0.15, height = 0, size = 1.6, alpha = 0.8) +
   labs(x = NULL, y = "Best cosine similarity to COSMIC v3.4") +
   theme_bw()
-ggsave(file.path(FIG_DIR, "03_cosine_to_cosmic.pdf"), p_cos, width = 4.5, height = 4)
+ggsave(file.path(FIG_DIR, "TensorSignatures_cosine_to_cosmic.pdf"), p_cos, width = 4.5, height = 4)
 
 ################################################################################
 # 3. Chromatin-state effects
@@ -105,9 +105,9 @@ cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE)
 write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
           row.names = FALSE)
 
-ggsave(file.path(FIG_DIR, "03_chromatin_effects_pooled.pdf"),
+ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_pooled.pdf"),
        plot_chromatin_effects(cmp), width = 6, height = 5)
-ggsave(file.path(FIG_DIR, "03_chromatin_effects_by_signature.pdf"),
+ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_signature.pdf"),
        plot_chromatin_effects(cmp, by_signature = TRUE), width = 12, height = 9)
 
 effect_agreement <- data.frame(
@@ -136,7 +136,7 @@ write.csv(scores, file.path(DIR_TENSORSIG, "mutation_rate_scores.csv"),
           row.names = FALSE)
 print(scores)
 
-ggsave(file.path(FIG_DIR, "03_mutation_rate_along_genome.pdf"),
+ggsave(file.path(FIG_DIR, "TensorSignatures_mutation_rate_along_genome.pdf"),
        plot_mutation_rate(rate), width = 12, height = 4)
 
 message("done: outputs in ", DIR_TENSORSIG, " and ", FIG_DIR)

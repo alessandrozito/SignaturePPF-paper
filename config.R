@@ -21,7 +21,7 @@ DATA_DIR   <- Sys.getenv("SIGNATUREPPF_DATA",
 
 OUTPUT_DIR <- file.path(PAPER_ROOT, "output")
 FIG_DIR    <- file.path(PAPER_ROOT, "figures")
-FUN_DIR    <- file.path(PAPER_ROOT, "R", "functions")
+R_DIR      <- file.path(PAPER_ROOT, "R")
 
 for (d in c(OUTPUT_DIR, FIG_DIR)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
 
@@ -43,8 +43,8 @@ PATH_ICGC_CN   <- file.path(DATA_DIR,
                             "data_for_application/20170119_final_consensus_copynumber_donor")
 
 ## --------------------------------------------------------------- output dirs
-DIR_REPLICATION <- file.path(OUTPUT_DIR, "01_replication_Breast80_vs_ICGC")
-DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "02_tensorsignatures")
+DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
+DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "Comparison_TensorSignatures")
 for (d in c(DIR_REPLICATION, DIR_TENSORSIG)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
@@ -60,17 +60,20 @@ SIGS_TO_USE <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8",
 SEED <- 10L
 
 ## --------------------------------------------------------- TensorSignatures
-## The conda environment built by bash/setup_tensorsig_env.sh. TensorSignatures
+## The conda environment built by setup_tensorsig_env.sh. TensorSignatures
 ## 0.5.0 pins tensorflow <= 1.15, whose wheels stop at cp37, so it cannot share an
 ## interpreter with anything modern - see that script.
 TENSORSIG_PYTHON <- Sys.getenv(
   "TENSORSIG_PYTHON",
   unset = path.expand("~/miniconda3/envs/tensorsig/bin/python"))
 
-## Load every helper in R/functions/.
+## The helper files, listed explicitly: R/ is flat, so sourcing everything in it
+## would also source the analysis scripts.
+FUNCTION_FILES <- c("Utils_functions.R",
+                    "Plot_functions.R",
+                    "TensorSignatures_functions.R")
+
 load_functions <- function() {
-  for (f in list.files(FUN_DIR, pattern = "[.][Rr]$", full.names = TRUE)) {
-    source(f)
-  }
+  for (f in FUNCTION_FILES) source(file.path(R_DIR, f))
   invisible(TRUE)
 }
