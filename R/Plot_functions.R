@@ -40,16 +40,16 @@ sig_palette <- function(sigs) {
 #' compressive prior has switched off, so a coefficient row can be read together
 #' with whether its signature is actually carrying anything.
 #'
-#' @param df A data frame from [df_assign()].
+#' @param df_Assign A data frame from [df_assign()].
 #' @param levs Signature order, normally `colnames(fit$Betas)` so the panels line
 #'   up row-for-row with a beta heatmap plotted beside it.
 #' @param mu_cutoff Below this `mu`, a signature is drawn as compressed.
-plot_mu_facets <- function(df, levs, mu_cutoff = 0.05) {
-  df$best_sig <- factor(df$best_sig, levels = levs)
-  df$compressed <- ifelse(df$m == 0 | df$mu < mu_cutoff,
-                          "compressed", "not compressed")
+plot_vector_facets_x <- function(df_Assign, levs, mu_cutoff = 0.05) {
+  df_Assign$best_sig <- factor(df_Assign$best_sig, levels = levs)
+  df_Assign$compressed <- ifelse(df_Assign$m == 0 | df_Assign$mu < mu_cutoff,
+                                 "compressed", "not compressed")
 
-  ggplot2::ggplot(df, ggplot2::aes(x = 1, y = 1, size = .data$mu,
+  ggplot2::ggplot(df_Assign, ggplot2::aes(x = 1, y = 1, size = .data$mu,
                                    fill = .data$m, shape = .data$compressed)) +
     ggplot2::geom_point(colour = "black", stroke = 0.7) +
     ggplot2::facet_wrap(~ best_sig, ncol = 1, strip.position = "left") +

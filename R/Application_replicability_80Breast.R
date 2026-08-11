@@ -1,22 +1,9 @@
 ################################################################################
 # Replication: 80 breast cancers (Davies et al. 2017) vs ICGC Breast-AdenoCa
 #
-# QUESTION
-# --------
-# Are the genomic covariate effects a signature carries reproducible across two
-# independent breast cohorts? The signatures themselves are held FIXED at their
-# COSMIC reference, so nothing about the spectra can differ between the fits and
-# the only thing being compared is beta - the shape of each signature along the
-# genome - plus which signatures the compressive prior keeps.
-#
 # Both cohorts are binned at 10 kb (rather than the 2 kb used for the main
-# application) and carry the same 11 covariates, so the two fits are given
-# identical information.
-#
-# MAP only: the replication claim is about point estimates agreeing across
-# cohorts, and a full chain on each adds nothing to it.
-#
-# Runtime: a few minutes per cohort. Nothing here needs the cluster.
+# application) and carry the same 11 covariates. We only run the MAP estimate,
+# keeping signatures fixed.
 #
 # Usage:  Rscript R/Application_replicability_80Breast.R
 ################################################################################
@@ -55,17 +42,7 @@ CosmicSigs <- COSMIC_v3.4_SBS96_GRCh37[, SIGS_TO_USE]
 ################################################################################
 # 2. Fit both cohorts
 #
-#    A refit: the signatures are pinned to COSMIC and only the activities and the
-#    covariate coefficients are estimated. `sigs_fixed = TRUE` is what makes it a
-#    refit; `K` plays no part and is ignored.
-#
-#    NOTE for anyone comparing against the predecessor package. SigPoisProcess
-#    offered two parameterisations - the original prior, SigPoisProcess(), and
-#    the activity prior, SigPoisProcess.activity(). SignaturePPF implements ONLY
-#    the activity prior, so the old script's original-vs-activity comparison
-#    cannot be rerun here, and results are not numerically comparable to fits
-#    made with SigPoisProcess(). That comparison belongs in a separate, one-off
-#    paired run against the archived package.
+#    We keep `sigs_fixed = TRUE`
 ################################################################################
 controls <- SignaturePPF_control(maxiter = 200, tol = 1e-6)
 
@@ -121,9 +98,8 @@ ggsave(file.path(FIG_DIR, "Replication_burden_along_genome.pdf"), p_burden,
 # --- per-cohort coefficient heatmaps, each beside its relevance-weight column.
 #     cap = 1 bounds the colour scale only; the printed number is the estimate.
 panel <- function(fit, data) {
-  plot_Betas(fit, cap = 1) + theme(legend.position = "none") +
-    plot_mu_facets(df_assign(fit, data), levs = colnames(fit$Betas)) +
-    theme(legend.position = "right") +
+  plot_Betas(fit, cap = 1) +
+    plot_vector_facets_x(df_assign(fit, data), levs = colnames(fit$Betas)) +
     plot_layout(widths = c(4, 1))
 }
 p_80 <- panel(fitPPF_80, data80)

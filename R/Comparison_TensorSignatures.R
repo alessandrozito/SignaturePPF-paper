@@ -119,6 +119,8 @@ if (file.exists(PATH_PPF_FIT)) {
   saveRDS(fit, PATH_PPF_FIT, compress = "gzip")
 }
 print(fit)
+plot(fit, what = "betas") + plot(fit, what = "mu")
+plot(fit)
 
 ref_match <- match_to_cosmic(fit$Signatures)
 ref_match$mu <- as.numeric(fit$Mu[ref_match$signature])
@@ -140,14 +142,8 @@ export_ts_chromatin(dataChrom, out_dir = DIR_TENSORSIG, tag = TAG)
 ################################################################################
 # 4. Fit TensorSignatures
 #
-#    Shelled out, because it runs under a different interpreter. run_ts_sweep.sh
-#    skips ranks that already have a complete fit, so this is cheap on a rerun
-#    and restartable after an interruption.
-#
-#    TensorSignatures has no compressive prior, so its number of signatures has
-#    to be chosen by an explicit sweep and an information criterion - unlike PPF,
-#    where the prior selects K. That difference is itself part of the comparison,
-#    which is why the sweep is a step here and not a tuning detail.
+#    TensorSignatures has no automatic selection for the priors, so its number of
+#    signatures has to be chosen by an explicit sweep and an information criterion.
 ################################################################################
 message("\n== 4. TensorSignatures rank sweep ==")
 if (!file.exists(TENSORSIG_PYTHON)) {
