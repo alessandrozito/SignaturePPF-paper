@@ -62,11 +62,21 @@ path_mark <- function(mark, source = c("tissue", "cell")) {
 PATH_ICGC2KB <- file.path(DATA_DIR,
                           "ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip")
 
-## Everything the 2 kb preprocessing reads.
-PATHS_PREPROCESS <- c(PATH_ICGC_SNV, PATH_ICGC_CN, PATH_BLACKLIST, PATH_GAPS,
-                      PATH_GC, PATH_METHYL, PATH_REPLITIME, PATH_NUCLEOSOME,
-                      vapply(CHROMATIN_MARKS, path_mark, "", source = "tissue"),
-                      vapply(CHROMATIN_MARKS, path_mark, "", source = "cell"))
+## The covariate tracks and the two masks - shared by both cohorts.
+PATHS_TRACKS <- c(PATH_BLACKLIST, PATH_GAPS,
+                  PATH_GC, PATH_METHYL, PATH_REPLITIME, PATH_NUCLEOSOME,
+                  vapply(CHROMATIN_MARKS, path_mark, "", source = "tissue"),
+                  vapply(CHROMATIN_MARKS, path_mark, "", source = "cell"))
+
+## Everything the ICGC preprocessing reads.
+PATHS_PREPROCESS <- c(PATH_ICGC_SNV, PATH_ICGC_CN, PATHS_TRACKS)
+
+## ------------------------------------------------ the 80-cancer cohort, raw
+## Davies et al. (2017): per-sample CaVEMan calls and ASCAT copy-number
+## segments, one file each per tumour.
+PATH_BREAST80_SNV <- file.path(DATA_DIR, "SNP80Breast")
+PATH_BREAST80_CN  <- file.path(DATA_DIR, "copyNumber80Breast")
+PATHS_PREPROCESS_BREAST80 <- c(PATH_BREAST80_SNV, PATH_BREAST80_CN, PATHS_TRACKS)
 
 ## Fail early and by name, rather than three steps into a pipeline.
 check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,

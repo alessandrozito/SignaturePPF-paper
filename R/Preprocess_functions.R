@@ -178,6 +178,198 @@ merge_with_tumor <- function(gr_tumor, gr_SignalTrack, verbose = TRUE) {
 }
 
 
+################################################################################
+# The 80-cancer cohort (Davies et al. 2017)
+#
+# A different front end from the ICGC one: mutations arrive as per-sample CaVEMan
+# VCFs rather than an assembled GRanges, and copy number as per-sample ASCAT
+# segment tables rather than one consensus file. Everything downstream of
+# `build_breast80_dataset()` is the same code the ICGC path uses.
+################################################################################
+
+#' The 96 pyrimidine-centred substitution channels, in COSMIC order
+mutation_channels_96 <- function() {
+  nucleotides <- c("A", "C", "G", "T")
+  substitutions <- c("C>A", "C>T", "C>G", "T>A", "T>G", "T>C")
+  sort(apply(expand.grid(nucleotides, substitutions, nucleotides), 1,
+             function(x) paste0(x[1], "[", x[2], "]", x[3])))
+}
+
+
+#' Assign each SNV its trinucleotide channel
+#'
+#' The channel is defined on the pyrimidine of the pair, so a mutation with a
+#' purine reference is reported on the opposite strand: the context is reverse
+#' complemented and the alleles complemented. Without that the same physical
+#' event would land in two different channels depending on which strand the
+#' caller happened to report.
+#'
+#' @param gr A `GRanges` of single-base substitutions with `ref` and `alt`.
+#' @param genome The reference the contexts are read from.
+#' @return `gr` with a `channel` factor over the 96 channels.
+call_mutation_channel <- function(
+    gr, genome = BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19) {
+  ctx_gr <- GenomicRanges::GRanges(
+    seqnames = GenomicRanges::seqnames(gr),
+    ranges = IRanges::IRanges(start = GenomicRanges::start(gr) - 1, width = 3))
+  context <- BSgenome::getSeq(genome, ctx_gr)
+  rccontext <- Biostrings::reverseComplement(context)
+
+  ref <- Biostrings::DNAStringSet(gr$ref)
+  alt <- Biostrings::DNAStringSet(gr$alt)
+  pyrimidine <- as.character(ref) %in% c("C", "T")
+
+  gr$channel <- factor(
+    ifelse(pyrimidine,
+           paste0(XVector::subseq(context, 1, 1), "[", ref, ">", alt, "]",
+                  XVector::subseq(context, 3, 3)),
+           paste0(XVector::subseq(rccontext, 1, 1), "[",
+                  Biostrings::complement(ref), ">", Biostrings::complement(alt),
+                  "]", XVector::subseq(rccontext, 3, 3))),
+    levels = mutation_channels_96())
+  gr
+}
+
+
+#' Read a directory of CaVEMan VCFs into one GRanges of SNVs
+#'
+#' Only clean single-base substitutions are kept: an indel or a multi-allelic
+#' record has no trinucleotide channel, so it cannot enter the model.
+read_caveman_vcfs <- function(dir = PATH_BREAST80_SNV, tumor = "Breast80",
+                              verbose = TRUE) {
+  files <- list.files(dir, pattern = "\\.caveman\\.vcf$", full.names = TRUE)
+  if (!length(files)) stop("no *.caveman.vcf under ", dir, call. = FALSE)
+  if (verbose) message("  reading ", length(files), " VCFs")
+
+  bases <- c("A", "C", "G", "T")
+  muts <- data.table::rbindlist(lapply(files, function(f) {
+    v <- data.table::fread(f, skip = "#CHROM", showProgress = FALSE)
+    data.table::setnames(v, "#CHROM", "CHROM")
+    # Base `%in%` and plain vector indexing: data.table is used here for fread's
+    # speed only, and its non-standard evaluation needs the package attached,
+    # which a sourced helper cannot assume.
+    keep <- v$REF %in% bases & v$ALT %in% bases
+    data.frame(sample = sub("\\.caveman\\.vcf$", "", basename(f)),
+               chrom = paste0("chr", v$CHROM[keep]),
+               pos = v$POS[keep], ref = v$REF[keep], alt = v$ALT[keep],
+               stringsAsFactors = FALSE)
+  }))
+  muts <- muts[muts$chrom != "chrY", ]
+
+  gr <- GenomicRanges::GRanges(
+    seqnames = muts$chrom,
+    ranges = IRanges::IRanges(start = muts$pos, width = 1),
+    strand = "*",
+    tumor = tumor,
+    sample = muts$sample,
+    ref = muts$ref,
+    alt = muts$alt)
+  gr <- call_mutation_channel(gr)
+  # `ref` and `alt` have done their job. Left in place they would be two extra
+  # mcols the model has to be told to ignore.
+  gr$ref <- NULL
+  gr$alt <- NULL
+  if (verbose) {
+    message("  ", format(length(gr), big.mark = ","), " SNVs, ",
+            length(unique(gr$sample)), " samples")
+  }
+  gr
+}
+
+
+#' Read a directory of ASCAT segment tables into a copy-number GRanges
+#'
+#' The files are headerless, and their chromosome column is numeric in some
+#' releases and already named in others, so 23/24 are mapped to X/Y explicitly.
+read_ascat_segments <- function(dir = PATH_BREAST80_CN, verbose = TRUE) {
+  files <- list.files(dir, pattern = "ascat.*\\.csv$", full.names = TRUE)
+  if (!length(files)) stop("no ascat *.csv under ", dir, call. = FALSE)
+  if (verbose) message("  reading ", length(files), " ASCAT tables")
+
+  cols <- c("seg_id", "chr_num", "start", "end", "normal_total", "normal_minor",
+            "tumour_total", "tumour_minor")
+  df <- do.call(rbind, lapply(files, function(f) {
+    d <- utils::read.csv(f, header = FALSE, col.names = cols,
+                         colClasses = "character")
+    d$sampleID <- sub("[._]ascat.*$", "", basename(f))
+    d
+  }))
+
+  chr <- as.character(df$chr_num)
+  chr[chr == "23"] <- "X"
+  chr[chr == "24"] <- "Y"
+
+  GenomicRanges::GRanges(
+    seqnames = paste0("chr", chr),
+    ranges = IRanges::IRanges(start = as.numeric(df$start),
+                              end = as.numeric(df$end)),
+    strand = "*",
+    sample = df$sampleID,
+    score = as.numeric(df$tumour_total))
+}
+
+
+#' Build the binned 80-cancer cohort object
+#'
+#' @param tilewidth Bin width in bases. 10 kb by default, which is what the
+#'   replication analysis needs - it compares this cohort against ICGC on one
+#'   grid, so the two have to be binned identically.
+build_breast80_dataset <- function(tilewidth = 10000, verbose = TRUE) {
+  say <- function(...) if (verbose) message(...)
+
+  say("Loading mutations")
+  gr_tumor <- read_caveman_vcfs(verbose = verbose)
+  blacklist <- rtracklayer::import(PATH_BLACKLIST)
+  hits <- GenomicRanges::findOverlaps(gr_tumor, blacklist)
+  if (length(hits)) gr_tumor <- gr_tumor[-S4Vectors::queryHits(hits)]
+  gr_tumor <- gr_tumor[GenomicRanges::seqnames(gr_tumor) != "chrY"]
+  say("  ", format(length(gr_tumor), big.mark = ","), " after the blacklist")
+
+  # A mutation whose context could not be resolved - at a contig edge, or in a
+  # run of N - has no channel and cannot be modelled.
+  unresolved <- is.na(gr_tumor$channel)
+  if (any(unresolved)) {
+    say("  dropping ", sum(unresolved), " mutations with an unresolvable ",
+        "trinucleotide context")
+    gr_tumor <- gr_tumor[!unresolved]
+  }
+
+  say("Loading copy number")
+  gr_copy <- read_ascat_segments(verbose = verbose)
+
+  say("Building CopyTrack at ", tilewidth, " bp")
+  gr_CopyTrack <- build_CopyTrack(gr_tumor, gr_copy, tilewidth = tilewidth)
+
+  say("Building SignalTrack at ", tilewidth, " bp")
+  gr_SignalTrack <- build_SignalTrack(tilewidth = tilewidth, verbose = verbose)
+
+  say("Standardising covariates")
+  covariates <- setdiff(names(GenomicRanges::mcols(gr_SignalTrack)), "bin_weight")
+  for (v in covariates) {
+    GenomicRanges::mcols(gr_SignalTrack)[[v]] <-
+      as.numeric(standardize_covariates(GenomicRanges::mcols(gr_SignalTrack)[[v]]))
+  }
+
+  say("Attaching covariates to mutations")
+  gr_Mutations <- merge_with_tumor(gr_tumor, gr_SignalTrack, verbose = verbose)
+
+  MutMatrix <- SignaturePPF::getTotalMutations(gr_Mutations)
+  SignalTrack <- as.matrix(GenomicRanges::mcols(gr_SignalTrack)[, covariates,
+                                                                drop = FALSE])
+  CopyTrack <- as.matrix(GenomicRanges::mcols(gr_CopyTrack)[, -1, drop = FALSE])
+  CopyTrack <- CopyTrack * gr_CopyTrack$bin_weight
+  CopyTrack <- CopyTrack[, colnames(MutMatrix), drop = FALSE]
+
+  stopifnot(nrow(SignalTrack) == nrow(CopyTrack))
+
+  list(gr_Mutations = gr_Mutations,
+       SignalTrack = SignalTrack,
+       CopyTrack = CopyTrack,
+       gr_CopyTrack = gr_CopyTrack,
+       gr_SignalTrack = gr_SignalTrack)
+}
+
+
 #' Build one binned cohort object from the raw ICGC tracks
 #'
 #' @param tilewidth Bin width in bases.

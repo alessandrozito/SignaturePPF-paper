@@ -18,20 +18,12 @@ remotes::install_github("alessandrozito/SignaturePPF")
 Other R packages used here: tidyverse, GenomicRanges, rtracklayer, BSgenome and
 BSgenome.Hsapiens.UCSC.hg19, patchwork, ggalluvial, RcppHungarian, RhpcBLASctl.
 
-`config.R` caps BLAS to a single thread. That is not a throttle: the linear
-algebra here is tall-and-skinny, so one thread is within ~15% of the best
-setting on wall time while using a tenth of the CPU, and the unlimited default
-is actually *slower* than one thread on a 24-core machine. Override with
-`SIGNATUREPPF_BLAS_THREADS=8` if you are running a single fit and want the last
-15%.
-
-All inputs live in `data/` inside this repository, so the analyses depend on
-nothing outside it. Two environment variables override the defaults if needed:
+All inputs live in `data/` inside this repository. Two environment variables override the defaults if needed:
 
 | Variable | Default | What |
 |---|---|---|
 | `SIGNATUREPPF_PAPER` | `~/SignaturePPF-paper` | this repository |
-| `SIGNATUREPPF_DATA` | `<repo>/data` | inputs, if they must live on another volume |
+| `SIGNATUREPPF_DATA` | `<repo>/data` | inputs |
 | `TENSORSIG_PYTHON` | `~/miniconda3/envs/tensorsig/bin/python` | TensorSignatures interpreter |
 
 The data files are not tracked — the ICGC cohort is access-controlled — but
@@ -46,24 +38,33 @@ one is and where the public ones come from.
 ```
 Rscript R/Preprocess_ICGC_BreastAdenoCA.R          # 2 kb, what the applications use
 Rscript R/Preprocess_ICGC_BreastAdenoCA.R 10000    # the coarser grid
+Rscript R/Preprocess_Breast80.R                    # the 80-cancer cohort, 10 kb
 ```
 
 Bins the genome, computes usable sequence per bin (assembly gaps and the ENCODE
 blacklist removed), averages the eleven covariate tracks onto those bins,
 winsorises and standardises them, attaches each mutation's covariate values, and
 multiplies copy number by usable sequence to give the exposure the Poisson
-process integrates over. About ten minutes and 8 GB at 2 kb. Skipped if the
-output already exists.
+process integrates over. Skipped if the output already exists. About ten minutes
+and 8 GB for ICGC at 2 kb; two minutes for the 80-cancer cohort.
 
-**One fix relative to the predecessor's loader.** It pre-filled the mutation
+The two cohorts differ only at the front end. ICGC arrives as an assembled
+`GRanges` plus one consensus copy-number table; the 80-cancer cohort arrives as
+80 CaVEMan VCFs and 80 ASCAT segment tables, so its SNVs are read, filtered to
+clean single-base substitutions, and assigned a trinucleotide channel from hg19
+first. Everything after that is shared code.
+
+**One fix relative to the predecessor's loaders.** They pre-filled the mutation
 covariate matrix with zeros and wrote only the rows that matched a retained bin.
 The covariates are standardised, so a zero row is not "missing" — it reads as a
 perfectly average bin, and mutations in assembly gaps were silently fitted as if
-they sat in one. They are now dropped, which is the only consistent choice: the
-model integrates its intensity over the retained bins, so a mutation outside
-them has no exposure behind it. The consequence is that
-`ICGC_BreastAdenoCA_avg10kb_*.rds.gzip` as shipped was built by the old code and
-rebuilding it here will not reproduce it byte for byte.
+they sat in one. They are dropped now: the model integrates its intensity over
+the retained bins, so a mutation outside them has no exposure behind it.
+
+The effect is small, and measured. Rebuilding the 80-cancer cohort reproduces
+the shipped object's `SignalTrack` and `CopyTrack` to **max absolute difference
+0**, on the same 278,763 bins and the same 80 samples. The only difference is
+**one mutation in 323,436** — the one that fell in a gap.
 
 ### 1. Replication across two breast cohorts
 
@@ -215,7 +216,8 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nohup setsid \
 ```
 config.R                              paths and shared settings, sourced by every script
 
-R/Preprocess_ICGC_BreastAdenoCA.R         build the binned cohort from raw tracks
+R/Preprocess_ICGC_BreastAdenoCA.R         build the ICGC cohort from raw tracks
+R/Preprocess_Breast80.R                   build the 80-cancer cohort from VCFs + ASCAT
 R/Application_denovo.R                    K = 12 estimated de novo, MAP then MCMC
 R/Application_refit.R                     15 COSMIC signatures held fixed
 R/Application_denovo_sensitivity.R        stability to Kmax and the priors, MAP only
@@ -265,10 +267,4 @@ reproducible from the scripts.
 | `TensorSignatures_chromatin_effects.pdf` (the two cuts side by side), `..._by_signature.pdf`, `..._by_state.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_mutation_rate_along_genome.pdf` | `R/Comparison_TensorSignatures.R` |
 
-## Note on the predecessor package
 
-These analyses were originally written against `SigPoisProcess`, which offered
-two parameterisations: the original prior and the activity prior. SignaturePPF
-implements **only** the activity prior, so results here are not numerically
-comparable to fits made with `SigPoisProcess()` and the old
-original-vs-activity comparison cannot be rerun from this repository.

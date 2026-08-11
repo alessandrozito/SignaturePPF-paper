@@ -25,6 +25,13 @@ cd data && md5sum -c <(awk 'NR>1 {print $3"  "$1}' MANIFEST.tsv)
 | `E028_15_coreMarks_dense.bed` | Roadmap ChromHMM 15-state segmentation, breast epithelium |
 | `hg19-blacklist.v2.bed` | ENCODE blacklist v2, hg19 |
 | `gaps_hg19.bed` | UCSC assembly gaps, hg19 |
+| `SNP80Breast/` | 80 CaVEMan VCFs, one per tumour (Davies et al. 2017) |
+| `copyNumber80Breast/` | 80 ASCAT segment tables, one per tumour |
+
+`Breast80_data.rds.gzip` is built from the last two by
+`Rscript R/Preprocess_Breast80.R`. The two directories are recorded in
+`MANIFEST.tsv` with a trailing slash; their checksum is the md5 of the sorted
+per-file md5s, so it is stable regardless of directory listing order.
 
 ### Covariate tracks
 
