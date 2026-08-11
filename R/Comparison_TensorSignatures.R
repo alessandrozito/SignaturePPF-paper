@@ -22,23 +22,18 @@
 # miniconda distribution under $HOME. It stops with that command if the environment is
 # missing.
 #
-# WHY THE TWO MODELS ARE NOT TRIVIALLY COMPARABLE
 # -----------------------------------------------
 # Both extend 96-channel NMF with genomic covariates, but parameterise the
 # genomic dependence differently - continuous log-linear against discrete
 # per-state amplitudes - and only TensorSignatures models strand asymmetry, only
-# PPF models copy number. See the header of R/TensorSignatures_functions.R for
-# the full table and for the strand limitation, which must be read before
-# reporting anything about strand.
-#
-# The comparison is therefore run on COMMON GROUND: the ChromHMM 15-state
+# PPF models copy number. We make the comparison using the ChromHMM 15-state
 # annotation of breast epithelium. The bins ARE the ChromHMM segments, so the
 # state assignment is exact for both methods, and PPF is given the states as
 # one-hot covariates with `Quies` dropped as reference - which makes each beta
 # the log enrichment relative to Quies, the same quantity TensorSignatures
 # reports as a state amplitude.
 #
-# Two comparisons, in increasing order of what they actually test:
+# Two comparisons:
 #
 #   SPECTRA  do the two methods find the same signatures? Matched one-to-one by
 #            cosine similarity, using the hungarian algorithm
@@ -118,7 +113,7 @@ if (file.exists(PATH_PPF_FIT)) {
   fit <- SignaturePPF(dataChrom,
                       K = K_PPF,
                       method = "map",
-                      controls = SignaturePPF_control(maxiter = 500, tol = 1e-6),
+                      controls = SignaturePPF_control(maxiter = 4000, tol = 1e-6),
                       seed = SEED,
                       verbose = TRUE)
   saveRDS(fit, PATH_PPF_FIT, compress = "gzip")

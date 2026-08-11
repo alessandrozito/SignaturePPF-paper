@@ -16,7 +16,14 @@ remotes::install_github("alessandrozito/SignaturePPF")
 ```
 
 Other R packages used here: tidyverse, GenomicRanges, rtracklayer, BSgenome and
-BSgenome.Hsapiens.UCSC.hg19, patchwork, RcppHungarian.
+BSgenome.Hsapiens.UCSC.hg19, patchwork, RcppHungarian, RhpcBLASctl.
+
+`config.R` caps BLAS to a single thread. That is not a throttle: the linear
+algebra here is tall-and-skinny, so one thread is within ~15% of the best
+setting on wall time while using a tenth of the CPU, and the unlimited default
+is actually *slower* than one thread on a 24-core machine. Override with
+`SIGNATUREPPF_BLAS_THREADS=8` if you are running a single fit and want the last
+15%.
 
 All inputs live in `data/` inside this repository, so the analyses depend on
 nothing outside it. Two environment variables override the defaults if needed:
