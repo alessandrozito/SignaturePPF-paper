@@ -16,7 +16,7 @@
 # Usage:  Rscript R/Application_refit.R
 #
 #   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nohup setsid \
-#     taskset -c 4-7 Rscript R/Application_refit.R \
+#     taskset -c 1 Rscript R/Application_refit.R \
 #     > output/Application_refit/run.log 2>&1 < /dev/null &
 ################################################################################
 

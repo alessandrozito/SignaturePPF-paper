@@ -206,7 +206,7 @@ hours. Launch them detached and pinned:
 
 ```
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nohup setsid \
-  taskset -c 0-3 Rscript R/Application_denovo.R \
+  taskset -c 0 Rscript R/Application_denovo.R \
   > output/Application_denovo/run.log 2>&1 < /dev/null &
 ```
 
@@ -222,6 +222,7 @@ R/Application_denovo_sensitivity.R        stability to Kmax and the priors, MAP 
 R/Application_replicability_80Breast.R    the two-cohort replication analysis
 R/Application_stability_of_covariates.R   the nested covariate-set analysis
 R/Comparison_TensorSignatures.R       the TensorSignatures comparison, end to end
+R/Simulation_main.R                   the main simulation study (Section 4)
 R/Simulation_misspec.R                the misspecification study, three stages
 
 R/Utils_functions.R                   cohort -> model form, mutation assignment, intensity
@@ -231,6 +232,7 @@ R/Application_functions.R             MAP restarts, checkpointed MCMC, summaries
 R/TensorSignatures_functions.R        chromatin states, tensor export, comparison
 R/Simulation_functions.R              the generative core of the simulation study
 R/Simulation_functions_misspec.R      misspecification scenarios, fitting, scoring
+R/Simulation_functions_main.R         main-study generation, coarsening, scoring
 
 setup_tensorsig_env.sh                build the TensorSignatures conda environment
 run_ts_sweep.sh                       the TensorSignatures rank sweep, driven by the

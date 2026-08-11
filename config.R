@@ -85,10 +85,12 @@ DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
 DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "Comparison_TensorSignatures")
 DIR_STABILITY   <- file.path(OUTPUT_DIR, "Covariate_stability")
 DIR_SIM_MISSPEC <- file.path(OUTPUT_DIR, "Simulation_misspec")
+DIR_SIM_MAIN    <- file.path(OUTPUT_DIR, "Simulation_main")
 DIR_DENOVO      <- file.path(OUTPUT_DIR, "Application_denovo")
 DIR_REFIT       <- file.path(OUTPUT_DIR, "Application_refit")
 DIR_SENSITIVITY <- file.path(OUTPUT_DIR, "Application_denovo_sensitivity")
 for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC,
+            DIR_SIM_MAIN,
             DIR_DENOVO, DIR_REFIT, DIR_SENSITIVITY)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }

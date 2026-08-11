@@ -21,7 +21,7 @@
 # a few seconds, so the chain is a run of many hours. Launch it detached:
 #
 #   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nohup setsid \
-#     taskset -c 0-3 Rscript R/Application_denovo.R \
+#     taskset -c 0 Rscript R/Application_denovo.R \
 #     > output/Application_denovo/run.log 2>&1 < /dev/null &
 ################################################################################
 
