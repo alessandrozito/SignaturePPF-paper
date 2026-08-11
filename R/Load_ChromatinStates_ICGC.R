@@ -35,6 +35,7 @@ source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
                             unset = path.expand("~/SignaturePPF-paper")),
                  "config.R"))
 load_functions()
+check_inputs()
 
 REFERENCE_STATE <- "Quies"
 TAG <- "icgc_chromatin"

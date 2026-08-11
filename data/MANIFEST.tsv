@@ -1,0 +1,8 @@
+file	bytes	md5
+20170119_final_consensus_copynumber_donor	37630191	b190219a0e6e2b5bd05bca9aca6869d8
+Breast80_data.rds.gzip	75079134	5eadb6168a66abc0b0cc01b2e6153e2c
+Breast-AdenoCa_snp.rds.gzip	3555764	9b98eff222b6aef4d2dcefc6341b46ea
+E028_15_coreMarks_dense.bed	31640722	ccc12b88b5bd8d455531d4d6afae77c6
+gaps_hg19.bed	15449	a31bad4f3be9167daeb99ef17a01fb83
+hg19-blacklist.v2.bed	34914	010dc2e0078589234229e49741e665c7
+ICGC_BreastAdenoCA_avg10kb_Mutations_Covariates_Copies.rds.gzip	106991013	d06676f559d24f1d30744ac81305b508

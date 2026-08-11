@@ -24,3 +24,6 @@ nohup.out
 # Python
 __pycache__/
 *.pyc
+
+# ... except the manifest, which records what the results were computed from
+!data/MANIFEST.tsv

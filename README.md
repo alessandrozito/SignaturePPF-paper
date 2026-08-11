@@ -18,19 +18,19 @@ remotes::install_github("alessandrozito/SignaturePPF")
 Other R packages used here: tidyverse, GenomicRanges, rtracklayer, BSgenome and
 BSgenome.Hsapiens.UCSC.hg19, patchwork, RcppHungarian.
 
-All paths derive from two environment variables, both with sensible defaults, so
-the pipeline moves to a cluster without editing any script:
+All inputs live in `data/` inside this repository, so the analyses depend on
+nothing outside it. Two environment variables override the defaults if needed:
 
 | Variable | Default | What |
 |---|---|---|
 | `SIGNATUREPPF_PAPER` | `~/SignaturePPF-paper` | this repository |
-| `SIGNATUREPPF_DATA` | `~/SigPoisProcess/data` | preprocessed cohort data |
-| `SIGNATUREPPF_CHROMHMM` | `~/E028_15_coreMarks_dense.bed` | Roadmap ChromHMM segmentation |
+| `SIGNATUREPPF_DATA` | `<repo>/data` | inputs, if they must live on another volume |
 | `TENSORSIG_PYTHON` | `~/miniconda3/envs/tensorsig/bin/python` | TensorSignatures interpreter |
 
-`SIGNATUREPPF_DATA` still points into the old project because the preprocessed
-`data` objects were built there. It changes once `SignaturePPF_preprocess()`
-exists and those objects are rebuilt into `data/`.
+The data files are not tracked — the ICGC cohort is access-controlled — but
+`data/MANIFEST.tsv` is, and records the size and MD5 of every file the published
+results were computed from. See [data/README.md](data/README.md) for what each
+one is and where the public ones come from.
 
 ## Analyses
 
@@ -102,7 +102,7 @@ setup_tensorsig_env.sh                build the TensorSignatures conda environme
 run_ts_sweep.sh                       the TensorSignatures rank sweep
 python/run_tensorsignatures.py        run under that environment, not the system Python
 
-data/                                 inputs (not tracked)
+data/                                 inputs (not tracked; see data/MANIFEST.tsv)
 output/                               results (not tracked)
 figures/                              figures (not tracked)
 ```

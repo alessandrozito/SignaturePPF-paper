@@ -32,6 +32,7 @@ source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
                             unset = path.expand("~/SignaturePPF-paper")),
                  "config.R"))
 load_functions()
+check_inputs()
 
 FIT_80   <- file.path(DIR_REPLICATION, "fit_Breast80_10kb_map.rds.gzip")
 FIT_ICGC <- file.path(DIR_REPLICATION, "fit_BreastICGC_10kb_map.rds.gzip")

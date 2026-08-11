@@ -3,21 +3,20 @@
 ## Sourced by every script. Nothing here has side effects beyond creating the
 ## output directories, so it is safe to source repeatedly.
 ##
-## Every path is derived from one of two roots, so the pipeline can be moved or
-## run on a cluster by setting two environment variables and nothing else:
+## Every path derives from one root, so the pipeline moves to a cluster by
+## setting one environment variable:
 ##
-##   SIGNATUREPPF_PAPER   this repository            (default ~/SignaturePPF-paper)
-##   SIGNATUREPPF_DATA    preprocessed cohort data   (default ~/SigPoisProcess/data)
+##   SIGNATUREPPF_PAPER   this repository (default ~/SignaturePPF-paper)
 ##
-## SIGNATUREPPF_DATA still points into the old project because the preprocessed
-## `data` objects were built there and the preprocessing has not been ported to
-## SignaturePPF yet. Once SignaturePPF_preprocess() exists, those objects get
-## rebuilt into data/ here and the default changes.
+## All inputs live in data/ inside the repository, so the analyses depend on
+## nothing outside it. SIGNATUREPPF_DATA overrides that location if the data has
+## to sit on a different volume - on a cluster it is usually too large for a home
+## directory quota.
 
 PAPER_ROOT <- Sys.getenv("SIGNATUREPPF_PAPER",
                          unset = path.expand("~/SignaturePPF-paper"))
 DATA_DIR   <- Sys.getenv("SIGNATUREPPF_DATA",
-                         unset = path.expand("~/SigPoisProcess/data"))
+                         unset = file.path(PAPER_ROOT, "data"))
 
 OUTPUT_DIR <- file.path(PAPER_ROOT, "output")
 FIG_DIR    <- file.path(PAPER_ROOT, "figures")
@@ -34,13 +33,24 @@ PATH_ICGC10KB <- file.path(DATA_DIR,
                            "ICGC_BreastAdenoCA_avg10kb_Mutations_Covariates_Copies.rds.gzip")
 
 ## Raw inputs for the chromatin-state comparison.
-PATH_CHROMHMM  <- Sys.getenv("SIGNATUREPPF_CHROMHMM",
-                             unset = path.expand("~/E028_15_coreMarks_dense.bed"))
-PATH_BLACKLIST <- file.path(DATA_DIR, "data_for_application/hg19-blacklist.v2.bed")
-PATH_GAPS      <- file.path(DATA_DIR, "data_for_application/gaps_hg19.bed")
-PATH_ICGC_SNV  <- file.path(DATA_DIR, "data_for_application/Breast-AdenoCa_snp.rds.gzip")
-PATH_ICGC_CN   <- file.path(DATA_DIR,
-                            "data_for_application/20170119_final_consensus_copynumber_donor")
+## E028 is the Roadmap ChromHMM segmentation of breast epithelium.
+PATH_CHROMHMM  <- file.path(DATA_DIR, "E028_15_coreMarks_dense.bed")
+PATH_BLACKLIST <- file.path(DATA_DIR, "hg19-blacklist.v2.bed")
+PATH_GAPS      <- file.path(DATA_DIR, "gaps_hg19.bed")
+PATH_ICGC_SNV  <- file.path(DATA_DIR, "Breast-AdenoCa_snp.rds.gzip")
+PATH_ICGC_CN   <- file.path(DATA_DIR, "20170119_final_consensus_copynumber_donor")
+
+## Fail early and by name, rather than three steps into a pipeline.
+check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,
+                                   PATH_BLACKLIST, PATH_GAPS, PATH_ICGC_SNV,
+                                   PATH_ICGC_CN)) {
+  gone <- paths[!file.exists(paths)]
+  if (length(gone)) {
+    stop("missing input file(s):\n  ", paste(gone, collapse = "\n  "),
+         "\n\nSee data/README.md.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
 
 ## --------------------------------------------------------------- output dirs
 DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
