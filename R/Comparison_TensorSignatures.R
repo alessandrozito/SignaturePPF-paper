@@ -19,8 +19,7 @@
 #     ./setup_tensorsig_env.sh
 #
 # This script does NOT build it automatically: it downloads and installs a
-# miniconda distribution under $HOME, which is not something an analysis script
-# should do behind your back. It stops with that command if the environment is
+# miniconda distribution under $HOME. It stops with that command if the environment is
 # missing.
 #
 # WHY THE TWO MODELS ARE NOT TRIVIALLY COMPARABLE
@@ -39,21 +38,13 @@
 # the log enrichment relative to Quies, the same quantity TensorSignatures
 # reports as a state amplitude.
 #
-# Three comparisons, in increasing order of what they actually test:
+# Two comparisons, in increasing order of what they actually test:
 #
 #   SPECTRA  do the two methods find the same signatures? Matched one-to-one by
-#            cosine similarity (Hungarian, not argmax).
+#            cosine similarity, using the hungarian algorithm
 #   EFFECTS  do they agree on the chromatin-state effect of each matched
 #            signature? Both are log enrichments against the same reference
 #            state, so they compare directly with no rescaling.
-#   RATE     do they predict WHERE the mutations are? This is where the models
-#            genuinely differ: PPF has an intensity per bin, TensorSignatures
-#            can only place a total per (state, sample) and has no notion of
-#            position within a state.
-#
-# Runtime: the ChromHMM segmentation is ~600k segments and copy number is built
-# per sample, so the first stage takes tens of minutes and a few GB. The rank
-# sweep is the long pole - hours on CPU for the full range of ranks.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -72,8 +63,8 @@ check_inputs()
 
 REFERENCE_STATE <- "Quies"
 TAG <- "icgc_chromatin"
-RANKS <- 4:12                 # the sweep
-K_PPF <- 20                   # upper bound; the compressive prior selects K
+RANKS <- 4:12                 # list of ranks tested by TensorSignatures
+K_PPF <- 12                   # upper bound to the number of signatures in PPF
 
 TS_BASE <- file.path(DIR_TENSORSIG, TAG)
 PATH_DATASET <- file.path(DIR_TENSORSIG, "dataset_chromatin.rds.gzip")
@@ -88,7 +79,7 @@ rank_requested <- if (length(args)) as.integer(args[1]) else NA_integer_
 message("\n== 1. chromatin-state dataset ==")
 if (file.exists(PATH_DATASET)) {
   message("cached: ", basename(PATH_DATASET))
-  dat <- readRDS(PATH_DATASET)
+  dataChrom <- readRDS(PATH_DATASET)
 } else {
   gr_tumor <- readRDS(PATH_ICGC_SNV)
 
@@ -105,28 +96,26 @@ if (file.exists(PATH_DATASET)) {
     ranges = IRanges::IRanges(start = df_copy$start, end = df_copy$end),
     strand = "*", sample = df_copy$sampleID, score = df_copy$value)
 
-  dat <- build_chromatin_dataset(gr_tumor, gr_copy, reference = REFERENCE_STATE)
-  saveRDS(dat, PATH_DATASET, compress = "gzip")
+  dataChrom <- build_chromatin_dataset(gr_tumor, gr_copy,
+                                       reference = REFERENCE_STATE)
+  saveRDS(dataChrom, PATH_DATASET, compress = "gzip")
 }
 
-invisible(SignaturePPF_validate(dat))
-message("bins: ", nrow(dat$SignalTrack), " | states: ", ncol(dat$SignalTrack) + 1,
-        " | samples: ", ncol(dat$CopyTrack),
-        " | mutations: ", length(dat$gr_Mutations))
+invisible(SignaturePPF_validate(dataChrom))
+message("bins: ", nrow(dataChrom$SignalTrack),
+        " | states: ", ncol(dataChrom$SignalTrack) + 1,
+        " | samples: ", ncol(dataChrom$CopyTrack),
+        " | mutations: ", length(dataChrom$gr_Mutations))
 
 ################################################################################
 # 2. Fit SignaturePPF
-#
-#    De novo, so the signature set is estimated rather than assumed - part of
-#    what the comparison is about is which signatures each method finds. K is an
-#    upper bound; the compressive prior parks the rest.
 ################################################################################
 message("\n== 2. SignaturePPF fit ==")
 if (file.exists(PATH_PPF_FIT)) {
   message("cached: ", basename(PATH_PPF_FIT))
   fit <- readRDS(PATH_PPF_FIT)
 } else {
-  fit <- SignaturePPF(dat,
+  fit <- SignaturePPF(dataChrom,
                       K = K_PPF,
                       method = "map",
                       controls = SignaturePPF_control(maxiter = 500, tol = 1e-6),
@@ -151,7 +140,7 @@ ggsave(file.path(FIG_DIR, "TensorSignatures_PPF_chromatin_betas.pdf"),
 # 3. Export the same data as a TensorSignatures tensor
 ################################################################################
 message("\n== 3. export tensor ==")
-export_ts_chromatin(dat, out_dir = DIR_TENSORSIG, tag = TAG)
+export_ts_chromatin(dataChrom, out_dir = DIR_TENSORSIG, tag = TAG)
 
 ################################################################################
 # 4. Fit TensorSignatures
@@ -287,7 +276,7 @@ print(effect_agreement)
 #    how close is each method's predicted burden to the observed one?
 ################################################################################
 message("\n== 8. regional mutation rate ==")
-rate <- compare_mutation_rate(dat, fit, TS_DIR, window = 1e6)
+rate <- compare_mutation_rate(dataChrom, fit, TS_DIR, window = 1e6)
 write.csv(rate, file.path(DIR_TENSORSIG, "mutation_rate_windows.csv"),
           row.names = FALSE)
 

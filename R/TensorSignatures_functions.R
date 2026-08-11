@@ -244,23 +244,23 @@ build_chromatin_dataset <- function(gr_tumor, gr_copy, reference = "Quies",
 #    against one version of the package; python/run_tensorsignatures.py assembles
 #    the final input and re-asserts the layout on its side.
 ################################################################################
-export_ts_chromatin <- function(dat, out_dir = DIR_TENSORSIG,
+export_ts_chromatin <- function(dataChrom, out_dir = DIR_TENSORSIG,
                                 tag = "icgc_chromatin") {
   d <- file.path(out_dir, tag)
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 
   cnt <- data.frame(
     tx_strand = 3L, rep_strand = 3L,
-    state = as.integer(dat$state_of_bin)[dat$bin_of_mut],
-    channel = as.character(dat$gr_Mutations$channel),
-    sample = as.character(dat$gr_Mutations$sample),
+    state = as.integer(dataChrom$state_of_bin)[dataChrom$bin_of_mut],
+    channel = as.character(dataChrom$gr_Mutations$channel),
+    sample = as.character(dataChrom$gr_Mutations$sample),
     stringsAsFactors = FALSE)
   cnt <- dplyr::count(cnt, .data$tx_strand, .data$rep_strand, .data$state,
                       .data$channel, .data$sample, name = "count")
 
   # Exposure per (state, sample), from the SAME CopyTrack the PPF model uses, so
   # neither method is given a different notion of how much genome each state has.
-  expo <- rowsum(dat$CopyTrack, as.integer(dat$state_of_bin))
+  expo <- rowsum(dataChrom$CopyTrack, as.integer(dataChrom$state_of_bin))
   expo_df <- as.data.frame(as.table(as.matrix(expo)), stringsAsFactors = FALSE)
   names(expo_df) <- c("state", "sample", "exposure")
   expo_df$state <- as.integer(expo_df$state)
@@ -458,36 +458,37 @@ compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies") {
 #    genomic windows so the comparison is on a common, interpretable scale rather
 #    than on the unequal ChromHMM segments.
 ################################################################################
-compare_mutation_rate <- function(dat, fit, ts_dir, window = 1e6) {
+compare_mutation_rate <- function(dataChrom, fit, ts_dir, window = 1e6) {
   f <- file.path(ts_dir, "ts_predicted_state_sample.tsv")
   if (!file.exists(f)) {
     stop("no ts_predicted_state_sample.tsv in ", ts_dir,
          " - refit with the current python/run_tensorsignatures.py")
   }
-  samples <- colnames(dat$CopyTrack)
+  samples <- colnames(dataChrom$CopyTrack)
 
-  n_bins <- length(dat$gr_SignalTrack)
+  n_bins <- length(dataChrom$gr_SignalTrack)
   obs <- unclass(table(
-    factor(dat$bin_of_mut, levels = seq_len(n_bins)),
-    factor(as.character(dat$gr_Mutations$sample), levels = samples)))
+    factor(dataChrom$bin_of_mut, levels = seq_len(n_bins)),
+    factor(as.character(dataChrom$gr_Mutations$sample), levels = samples)))
   storage.mode(obs) <- "double"
 
   # PPF intensity per bin. reconstruct_lambda() takes the BASELINE from the fit,
   # which under the activity prior is $Baseline and NOT $Thetas.
-  Lam_ppf <- reconstruct_lambda(fit, dat$SignalTrack,
-                                dat$CopyTrack[, samples, drop = FALSE])
+  Lam_ppf <- reconstruct_lambda(fit, dataChrom$SignalTrack,
+                                dataChrom$CopyTrack[, samples, drop = FALSE])
 
   # TS per-state total, spread over that state's bins by exposure share.
   pred <- readr::read_tsv(f, show_col_types = FALSE)
   P <- matrix(0, length(CHROM_STATES), length(samples),
               dimnames = list(NULL, samples))
   P[cbind(pred$state, match(pred$sample, samples))] <- pred$predicted
-  st <- as.integer(dat$state_of_bin)
-  tot_expo <- rowsum(dat$CopyTrack[, samples, drop = FALSE], st)
-  share <- dat$CopyTrack[, samples, drop = FALSE] / tot_expo[st, , drop = FALSE]
+  st <- as.integer(dataChrom$state_of_bin)
+  tot_expo <- rowsum(dataChrom$CopyTrack[, samples, drop = FALSE], st)
+  share <- dataChrom$CopyTrack[, samples, drop = FALSE] /
+    tot_expo[st, , drop = FALSE]
   Lam_ts <- P[st, , drop = FALSE] * share
 
-  gr <- dat$gr_SignalTrack
+  gr <- dataChrom$gr_SignalTrack
   win <- paste0(as.character(GenomicRanges::seqnames(gr)), ":",
                 floor((GenomicRanges::start(gr) + GenomicRanges::end(gr)) / 2 / window))
   win <- factor(win, levels = unique(win))          # genomic order preserved
