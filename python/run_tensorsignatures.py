@@ -53,7 +53,7 @@ Outputs, all written to the same directory as the input:
     ts_signatures.tsv         96 x rank  spectra (state- and strand-marginal)
     ts_state_amplitudes.tsv   per (signature, state) amplitude and log-ratio
     ts_exposures.tsv          rank x samples
-    ts_fit_summary.tsv        rank, log-likelihood, #params, BIC, epochs
+    ts_fit_summary.tsv        rank, log-likelihood, #params, AIC, BIC, epochs
     ts_predicted_state_sample.tsv  expected counts per (state, sample); the R side
                               spreads these over the segments to get a per-bin rate
 """
@@ -279,7 +279,10 @@ def n_parameters(model, result, rank):
 
 
 def fit_summary(model, result, rank):
-    """Log-likelihood, parameter count and BIC -- used to choose the rank."""
+    """Log-likelihood, parameter count, AIC and BIC -- used to choose the rank.
+
+    Both criteria are written; the R side selects on AIC by default and explains
+    why in R/Comparison_TensorSignatures.R."""
     logL = float(np.asarray(result.log_L).ravel()[-1]) \
         if np.size(result.log_L) else np.nan
     params = n_parameters(model, result, rank)

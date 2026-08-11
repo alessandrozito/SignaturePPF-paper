@@ -15,7 +15,7 @@
 #   strand asymmetry  not in the model              explicit (transcription and
 #                                                   replication strand)
 #   copy number       explicit multiplier c_j(t)    not modelled
-#   inference         MAP / MCMC, compressive       TensorFlow MLE, rank by BIC
+#   inference         MAP / MCMC, compressive       TensorFlow MLE, rank by AIC
 #                     prior selects K
 #
 # The comparison is therefore run on COMMON GROUND: the ChromHMM 15-state

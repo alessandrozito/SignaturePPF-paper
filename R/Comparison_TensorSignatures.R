@@ -1,11 +1,10 @@
 ################################################################################
 # Comparison against TensorSignatures (Vohringer et al., Nat Commun 2021),
-# end to end: builds the shared dataset, fits both methods, and compares them.
 #
 # Usage:  Rscript R/Comparison_TensorSignatures.R [rank]
 #
 #   rank   optional. Which TensorSignatures rank to compare against. Default is
-#          the lowest-BIC rank in the sweep.
+#          the lowest-AIC rank in the sweep.
 #
 # Every expensive step is cached, so rerunning only redoes what is missing:
 # the chromatin dataset, the SignaturePPF fit and each TensorSignatures rank are
@@ -194,21 +193,38 @@ if (is.null(sweep)) stop("no TensorSignatures fits under ", TS_BASE)
 write.csv(sweep, file.path(DIR_TENSORSIG, "ts_rank_sweep.csv"), row.names = FALSE)
 print(sweep)
 
-rank <- if (!is.na(rank_requested)) rank_requested else sweep$rank[which.min(sweep$BIC)]
+# AIC, not BIC. Both are reported by the Python side and both are plotted, but
+# the default is AIC: the parameter count here is large (4*95 spectrum
+# parameters per signature, plus one exposure per signature-sample pair) while
+# `observations` counts every cell of the count tensor, most of which are zero.
+# BIC's log(n) penalty is therefore severe enough to keep selecting a rank below
+# the point where the fit stops improving, which understates the signature set
+# TensorSignatures would actually be run with. Pass a rank explicitly to override.
+rank <- if (!is.na(rank_requested)) rank_requested else sweep$rank[which.min(sweep$AIC)]
 message("using rank ", rank,
-        if (is.na(rank_requested)) " (lowest BIC)" else " (given on the command line)")
+        if (is.na(rank_requested)) " (lowest AIC)" else " (given on the command line)")
 
 TS_DIR <- file.path(TS_BASE, sprintf("rank%02d", rank))
 if (!dir.exists(TS_DIR)) stop("no fit at ", TS_DIR)
 
-p_sweep <- ggplot(sweep, aes(rank, BIC)) +
+# Both criteria, so the choice is visible rather than asserted; the selected
+# rank is marked on the panel it was chosen from.
+sweep_long <- rbind(
+  data.frame(rank = sweep$rank, criterion = "AIC", value = sweep$AIC),
+  data.frame(rank = sweep$rank, criterion = "BIC", value = sweep$BIC))
+chosen <- data.frame(rank = rank, criterion = "AIC",
+                     value = sweep$AIC[match(rank, sweep$rank)])
+
+p_sweep <- ggplot(sweep_long, aes(rank, value)) +
   geom_line(colour = "grey50") + geom_point() +
-  geom_point(data = sweep[which.min(sweep$BIC), ], colour = "#CD2626", size = 3) +
-  labs(x = "Rank (number of signatures)", y = "BIC",
-       title = "TensorSignatures rank selection") +
+  geom_point(data = chosen, colour = "#CD2626", size = 3) +
+  facet_wrap(~ criterion, scales = "free_y") +
+  labs(x = "Rank (number of signatures)", y = NULL,
+       title = "TensorSignatures rank selection",
+       subtitle = paste0("selected rank ", rank, " (lowest AIC)")) +
   theme_bw()
 ggsave(file.path(FIG_DIR, "TensorSignatures_rank_sweep.pdf"), p_sweep,
-       width = 5, height = 3.5)
+       width = 8, height = 3.5)
 
 ################################################################################
 # 6. Compare: signature spectra
