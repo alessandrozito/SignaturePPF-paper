@@ -141,6 +141,146 @@ plot_beta_replication <- function(fit_x, fit_y, label_x = "Cohort A",
 }
 
 
+#' Coefficient of each covariate along a sequence of nested models
+#'
+#' One panel per covariate, showing what happens to its coefficient as further
+#' covariates are added to the model. A coefficient that moves little across the
+#' sequence is one the other covariates do not explain away.
+#'
+#' Only signatures the compressive prior keeps in EVERY model are drawn. For a
+#' switched-off signature \eqn{\beta} is a draw from its prior, so a trajectory
+#' that includes one would show the prior wandering rather than an estimate
+#' changing.
+#'
+#' @param fits The fitted models, in the order the covariates were added. Each
+#'   must be a fit whose `Betas` rows are the covariates it was given.
+#' @param covariate_order The covariate added at each step, in order.
+#' @param mu_cutoff A signature counts as present when `mu` exceeds this.
+plot_beta_path <- function(fits, covariate_order, mu_cutoff = 0.05) {
+  d <- do.call(rbind, lapply(seq_along(fits), function(m) {
+    B <- fits[[m]]$Betas
+    data.frame(model = m,
+               covariate = rep(rownames(B), times = ncol(B)),
+               signature = rep(colnames(B), each = nrow(B)),
+               beta = as.numeric(B),
+               mu = rep(as.numeric(fits[[m]]$Mu[colnames(B)]), each = nrow(B)),
+               stringsAsFactors = FALSE)
+  }))
+
+  alive <- vapply(split(d$mu, d$signature), function(z) all(z > mu_cutoff),
+                  logical(1))
+  d <- d[d$signature %in% names(which(alive)), , drop = FALSE]
+  if (!nrow(d)) stop("no signature is present in every model")
+  d$covariate <- factor(d$covariate, levels = covariate_order)
+  d$signature <- factor(d$signature, levels = sort(unique(d$signature)))
+
+  ggplot2::ggplot(d, ggplot2::aes(.data$model, .data$beta,
+                                  colour = .data$signature,
+                                  group = .data$signature)) +
+    ggplot2::geom_hline(yintercept = 0, linewidth = 0.3, colour = "grey70") +
+    ggplot2::geom_line() +
+    ggplot2::geom_point(size = 0.9) +
+    ggplot2::facet_grid(~ covariate, scales = "free", space = "free_x") +
+    ggplot2::scale_colour_manual(values = sig_palette(levels(d$signature))) +
+    ggplot2::scale_y_continuous(n.breaks = 8) +
+    ggplot2::scale_x_continuous(breaks = seq_along(covariate_order),
+                                labels = paste0("+", covariate_order),
+                                expand = ggplot2::expansion(add = 0.8)) +
+    ggplot2::labs(x = "Model (covariates added sequentially)",
+                  y = expression(hat(beta)), colour = "Signature") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(strip.text.x = ggplot2::element_text(angle = 90),
+                   strip.clip = "off",
+                   axis.text.x = ggplot2::element_text(angle = 45, hjust = 1,
+                                                       size = 7))
+}
+
+
+#' How mutation attribution flows as covariates are added
+#'
+#' An alluvial diagram over a sequence of models: each stratum is the set of
+#' mutations a model attributes to one signature, and a ribbon between two
+#' columns is a set of mutations that moved. The percentage above each column is
+#' the share of mutations that changed signature when that covariate entered.
+#'
+#' @param A A character matrix, mutations in rows and models in columns, holding
+#'   the signature each model attributes each mutation to.
+#' @param labels Column labels, length `ncol(A)`.
+#' @param levs Signature order for the strata and the legend.
+plot_assignment_alluvial <- function(A, labels, levs = NULL) {
+  if (is.null(levs)) levs <- sort(unique(as.vector(A)))
+  n_models <- ncol(A)
+
+  # Mutations sharing a whole path through the sequence are interchangeable, so
+  # they are collapsed to one ribbon carrying a count. Without this the diagram
+  # would be drawn from several hundred thousand rows.
+  key <- do.call(paste, c(as.data.frame(A, stringsAsFactors = FALSE),
+                          list(sep = "\r")))
+  tab <- table(key)
+  paths <- do.call(rbind, strsplit(names(tab), "\r", fixed = TRUE))
+
+  lodes <- data.frame(
+    path_id = rep(seq_len(nrow(paths)), times = n_models),
+    x = rep(seq_len(n_models), each = nrow(paths)),
+    stratum = factor(as.vector(paths), levels = levs),
+    n = rep(as.integer(tab), times = n_models))
+
+  moved <- vapply(seq_len(n_models - 1L),
+                  function(j) mean(A[, j] != A[, j + 1L]), numeric(1))
+  lab_df <- data.frame(x = seq_len(n_models - 1L) + 1L, y = nrow(A),
+                       lab = sprintf("%.1f%%", 100 * moved))
+
+  ggplot2::ggplot(lodes,
+                  ggplot2::aes(x = .data$x, stratum = .data$stratum,
+                               alluvium = .data$path_id, y = .data$n,
+                               fill = .data$stratum)) +
+    ggalluvial::geom_flow(alpha = 0.6, width = 0.3) +
+    ggalluvial::geom_stratum(width = 0.3, colour = "grey30", linewidth = 0.2) +
+    ggplot2::geom_text(data = lab_df, inherit.aes = FALSE,
+                       ggplot2::aes(x = .data$x, y = .data$y, label = .data$lab),
+                       vjust = -0.4, size = 3) +
+    ggplot2::scale_fill_manual(values = sig_palette(levs), name = "Signature",
+                               drop = FALSE) +
+    ggplot2::scale_x_continuous(breaks = seq_len(n_models), labels = labels) +
+    ggplot2::scale_y_continuous(labels = scales::comma,
+                                expand = ggplot2::expansion(mult = c(0.02, 0.08))) +
+    ggplot2::labs(x = "Model (covariates added sequentially)", y = "Mutations") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+}
+
+
+#' Per-patient predictive error along a sequence of nested models
+#'
+#' One box per model and sample split, so the in-sample and out-of-sample curves
+#' can be read against each other: covariates that only fit noise improve the
+#' first while leaving the second flat or worse.
+#'
+#' @param rmse A data frame with `model`, `patient`, `in_sample`, `out_sample`.
+#' @param labels Model labels, one per level of `model`.
+plot_rmse_path <- function(rmse, labels) {
+  d <- data.frame(
+    model = factor(rep(rmse$model, 2), levels = sort(unique(rmse$model))),
+    patient = rep(rmse$patient, 2),
+    rmse = c(rmse$in_sample, rmse$out_sample),
+    set = rep(c("In-sample", "Out-of-sample"), each = nrow(rmse)))
+
+  ggplot2::ggplot(d, ggplot2::aes(.data$model, .data$rmse, colour = .data$set)) +
+    ggplot2::geom_boxplot(outlier.shape = NA,
+                          position = ggplot2::position_dodge(width = 0.8)) +
+    ggplot2::geom_point(position = ggplot2::position_jitterdodge(
+      jitter.width = 0.15, dodge.width = 0.8), size = 0.7, alpha = 0.4) +
+    ggplot2::scale_x_discrete(labels = labels) +
+    ggplot2::scale_colour_manual(values = c("In-sample" = "#4682B4",
+                                            "Out-of-sample" = "#CD2626")) +
+    ggplot2::labs(x = "Model", y = "Per-patient RMSE (1 Mb regions)",
+                  colour = NULL) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+                   legend.position = "bottom")
+}
+
+
 #' Mutation burden per megabase along the genome, for one or more cohorts
 #'
 #' @param datasets A named list of cohort objects.

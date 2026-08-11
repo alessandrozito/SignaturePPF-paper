@@ -16,7 +16,7 @@ remotes::install_github("alessandrozito/SignaturePPF")
 ```
 
 Other R packages used here: tidyverse, GenomicRanges, rtracklayer, BSgenome and
-BSgenome.Hsapiens.UCSC.hg19, patchwork, RcppHungarian, RhpcBLASctl.
+BSgenome.Hsapiens.UCSC.hg19, patchwork, ggalluvial, RcppHungarian, RhpcBLASctl.
 
 `config.R` caps BLAS to a single thread. That is not a throttle: the linear
 algebra here is tall-and-skinny, so one thread is within ~15% of the best
@@ -89,6 +89,32 @@ position within a state.
 interpreter with anything modern. `setup_tensorsig_env.sh` builds it under
 `$HOME` with no root access; `rm -rf ~/miniconda3` undoes it.
 
+### 3. Stability of the covariate effects
+
+```
+Rscript R/Application_stability_of_covariates.R
+```
+
+Holds out a fifth of the genome — whole megabases, stratified by chromosome —
+and fits a sequence of nested models on the rest: first with no covariate
+effect at all, then adding one covariate at a time by forward selection on the
+per-bin residual. It answers three questions the reviewers raised: do the
+coefficients stay put as further covariates enter, does mutation attribution
+move between signatures, and does the extra structure predict on held-out
+genome or only fit the training bins.
+
+MAP only, and inherently serial — the covariate chosen at step *m*+1 is a
+function of the fit at step *m*, so there is nothing to parallelise. Each of the
+twelve fits is cached to its own file, so an interrupted run resumes.
+
+The null model is the same PPF with β held at exactly zero, not a separate NMF:
+same likelihood, same compressive prior, same optimiser, so the first point of
+every curve is the nested null of the ones after it rather than another method's
+answer.
+
+Note that this analysis excludes sample `DO1020` and the replication analysis
+does not, so relevance weights are not directly comparable between the two.
+
 **Do not report TensorSignatures strand-asymmetry results from this pipeline.**
 The mutation channels are already pyrimidine-normalised by the preprocessing, so
 the strand orientation each mutation had is lost. Both strand axes are filled
@@ -102,7 +128,8 @@ them means redoing the annotation from the raw calls.
 ```
 config.R                              paths and shared settings, sourced by every script
 
-R/Application_replicability_80Breast.R  the two-cohort replication analysis
+R/Application_replicability_80Breast.R    the two-cohort replication analysis
+R/Application_stability_of_covariates.R   the nested covariate-set analysis
 R/Comparison_TensorSignatures.R       the TensorSignatures comparison, end to end
 
 R/Utils_functions.R                   cohort -> model form, mutation assignment, intensity
@@ -133,6 +160,9 @@ reproducible from the scripts.
 | `Replication_burden_along_genome.pdf` | `R/Application_replicability_80Breast.R` |
 | `Replication_betas_Breast80.pdf`, `Replication_betas_BreastICGC.pdf` | `R/Application_replicability_80Breast.R` |
 | `Replication_betas_scatter.pdf`, `Replication_betas_difference.pdf` | `R/Application_replicability_80Breast.R` |
+| `Stability_betas_sequence.pdf` | `R/Application_stability_of_covariates.R` |
+| `Stability_riverplots.pdf` | `R/Application_stability_of_covariates.R` |
+| `Stability_rmse.pdf` | `R/Application_stability_of_covariates.R` |
 | `TensorSignatures_PPF_chromatin_betas.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_rank_sweep.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_cosine_to_cosmic.pdf` | `R/Comparison_TensorSignatures.R` |

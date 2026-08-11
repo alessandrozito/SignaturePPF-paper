@@ -62,6 +62,7 @@ fit_ppf <- function(data, out_file) {
   fit
 }
 
+# Run both models and save the output
 fitPPF_80 <- fit_ppf(data80, FIT_80)
 fitPPF_ICGC <- fit_ppf(dataICGC, FIT_ICGC)
 
@@ -69,10 +70,7 @@ print(fitPPF_80)
 print(fitPPF_ICGC)
 
 ################################################################################
-# 3. Which signatures survive in each cohort
-#
-#    The 80-cohort was assembled around mismatch-repair deficiency, so the MMRd
-#    signatures (SBS6/20/26/44) are the ones expected to separate the cohorts.
+# 3. Detect differences in regression coefficients in each cohort
 ################################################################################
 mu_table <- data.frame(
   signature = colnames(fitPPF_80$Signatures),

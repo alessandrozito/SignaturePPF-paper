@@ -173,13 +173,7 @@ if (is.null(sweep)) stop("no TensorSignatures fits under ", TS_BASE)
 write.csv(sweep, file.path(DIR_TENSORSIG, "ts_rank_sweep.csv"), row.names = FALSE)
 print(sweep)
 
-# AIC, not BIC. Both are reported by the Python side and both are plotted, but
-# the default is AIC: the parameter count here is large (4*95 spectrum
-# parameters per signature, plus one exposure per signature-sample pair) while
-# `observations` counts every cell of the count tensor, most of which are zero.
-# BIC's log(n) penalty is therefore severe enough to keep selecting a rank below
-# the point where the fit stops improving, which understates the signature set
-# TensorSignatures would actually be run with. Pass a rank explicitly to override.
+# Select the model with lowest AIC
 rank <- if (!is.na(rank_requested)) rank_requested else sweep$rank[which.min(sweep$AIC)]
 message("using rank ", rank,
         if (is.na(rank_requested)) " (lowest AIC)" else " (given on the command line)")
@@ -203,8 +197,6 @@ p_sweep <- ggplot(sweep_long, aes(rank, value)) +
        title = "TensorSignatures rank selection",
        subtitle = paste0("selected rank ", rank, " (lowest AIC)")) +
   theme_bw()
-ggsave(file.path(FIG_DIR, "TensorSignatures_rank_sweep.pdf"), p_sweep,
-       width = 8, height = 3.5)
 
 ################################################################################
 # 6. Compare: signature spectra
@@ -216,25 +208,12 @@ message("matched ", nrow(match_tbl), " pair(s) | unmatched TS: ",
         paste(attr(match_tbl, "unmatched_ts"), collapse = ", "),
         " | unmatched PPF: ",
         paste(attr(match_tbl, "unmatched_ppf"), collapse = ", "))
-write.csv(match_tbl, file.path(DIR_TENSORSIG, "signature_matching.csv"),
-          row.names = FALSE)
 
 # Each method against COSMIC, the neutral reference for "did it find a known
 # signature".
 cosmic_cmp <- rbind(
   cbind(method = "SignaturePPF", match_to_cosmic(fit$Signatures)),
   cbind(method = "TensorSignatures", match_to_cosmic(ts$signatures)))
-write.csv(cosmic_cmp, file.path(DIR_TENSORSIG, "signature_cosmic_comparison.csv"),
-          row.names = FALSE)
-print(cosmic_cmp)
-
-p_cos <- ggplot(cosmic_cmp, aes(method, cosine)) +
-  geom_boxplot(outlier.shape = NA, fill = "grey92") +
-  geom_jitter(width = 0.15, height = 0, size = 1.6, alpha = 0.8) +
-  labs(x = NULL, y = "Best cosine similarity to COSMIC v3.4") +
-  theme_bw()
-ggsave(file.path(FIG_DIR, "TensorSignatures_cosine_to_cosmic.pdf"), p_cos,
-       width = 4.5, height = 4)
 
 ################################################################################
 # 7. Compare: chromatin-state effects
@@ -244,8 +223,8 @@ cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE)
 write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
           row.names = FALSE)
 
-ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_pooled.pdf"),
-       plot_chromatin_effects(cmp), width = 6, height = 5)
+p_states <- plot_chromatin_effects(cmp, by_signature = TRUE)
+
 ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_signature.pdf"),
        plot_chromatin_effects(cmp, by_signature = TRUE), width = 12, height = 9)
 

@@ -55,7 +55,8 @@ check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,
 ## --------------------------------------------------------------- output dirs
 DIR_REPLICATION <- file.path(OUTPUT_DIR, "Replication_80Breast")
 DIR_TENSORSIG   <- file.path(OUTPUT_DIR, "Comparison_TensorSignatures")
-for (d in c(DIR_REPLICATION, DIR_TENSORSIG)) {
+DIR_STABILITY   <- file.path(OUTPUT_DIR, "Covariate_stability")
+for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
 

@@ -97,6 +97,128 @@ reconstruct_lambda <- function(fit, SignalTrack, CopyTrack) {
 }
 
 
+#' Bin index of every mutation
+#'
+#' Needs `gr_SignalTrack`, the bin ranges, which the preprocessed cohort objects
+#' carry alongside the covariate matrix. The bins tile the retained genome
+#' without overlapping, so every mutation hits at most one.
+#'
+#' A mutation that hits NO bin is returned as `NA` rather than dropped, so the
+#' caller decides. Any subsetting of the form `bin_of_mut %in% bins` excludes
+#' them automatically, which is the behaviour wanted here: a mutation in an
+#' excluded region belongs to neither the training nor the held-out set.
+#'
+#' @param data A cohort object with `gr_Mutations` and `gr_SignalTrack`.
+#' @return An integer vector, one bin index per mutation.
+bin_of_mutation <- function(data) {
+  if (is.null(data$gr_SignalTrack)) {
+    stop("`data` has no `gr_SignalTrack`, so mutations cannot be mapped onto ",
+         "bins. Load the cohort with load_cohort(), which keeps it.",
+         call. = FALSE)
+  }
+  idx <- GenomicRanges::findOverlaps(data$gr_Mutations, data$gr_SignalTrack,
+                                     select = "first")
+  if (anyNA(idx)) {
+    message(sum(is.na(idx)), " of ", length(idx),
+            " mutations fall outside every bin and are excluded.")
+  }
+  idx
+}
+
+
+#' Restrict a cohort to a set of bins and a set of covariates
+#'
+#' Used to fit on a training subset of the genome, and to fit the sequence of
+#' nested covariate sets in the stability analysis.
+#'
+#' The covariates are NOT re-standardised on the subset. They were standardised
+#' over the whole genome, and the values carried at the mutations were
+#' standardised with them; rescaling here would put the bins and the mutations on
+#' different scales, and would also put the training and held-out bins on
+#' different scales, making a coefficient fitted on one meaningless on the other.
+#'
+#' @param data A cohort object, as returned by [load_cohort()].
+#' @param bins Integer indices of the bins to keep. Sorted on the way in: the
+#'   rows of `SignalTrack` and `CopyTrack` must stay in genomic order.
+#' @param bin_of_mut Bin index of each mutation, from [bin_of_mutation()].
+#' @param covariates Covariates to keep. Defaults to all of them.
+#' @return A cohort object holding only those bins, and only the mutations
+#'   inside them.
+subset_bins <- function(data, bins, bin_of_mut, covariates = NULL) {
+  if (is.null(covariates)) covariates <- colnames(data$SignalTrack)
+  bins <- sort(unique(as.integer(bins)))
+
+  gr <- data$gr_Mutations[which(bin_of_mut %in% bins)]
+  GenomicRanges::mcols(gr) <-
+    GenomicRanges::mcols(gr)[, c("sample", "channel", covariates), drop = FALSE]
+  # A sample left with no mutations would otherwise survive as an all-zero
+  # column of the mutation matrix and be given an activity fitted to nothing.
+  gr$sample <- droplevels(as.factor(gr$sample))
+
+  list(gr_Mutations = gr,
+       SignalTrack = data$SignalTrack[bins, covariates, drop = FALSE],
+       CopyTrack = data$CopyTrack[bins, , drop = FALSE],
+       gr_SignalTrack = data$gr_SignalTrack[bins])
+}
+
+
+#' Expected counts of a fitted model on an arbitrary set of bins
+#'
+#' The bins need not be the ones the model was fitted on: with \eqn{\phi} held at
+#' its fitted value the intensity extends to any bin whose covariates and copy
+#' number are known, which is what makes an out-of-sample prediction possible.
+#'
+#' @param fit A `SignaturePPF` fit.
+#' @param data The cohort the bins are indexed into.
+#' @param bins Integer bin indices.
+#' @return A `length(bins) x nsamples` matrix of expected counts.
+predict_lambda_bins <- function(fit, data, bins) {
+  reconstruct_lambda(
+    fit,
+    data$SignalTrack[bins, , drop = FALSE],
+    data$CopyTrack[bins, colnames(fit$Thetas), drop = FALSE])
+}
+
+
+#' Per-patient RMSE of the predicted mutation rate, at a coarser resolution
+#'
+#' Both prediction and observation are aggregated from the model's bins up to
+#' wider regions before comparing. At 10 kb the counts are mostly 0 and 1 and the
+#' RMSE is dominated by Poisson noise no model can predict; aggregating to 1 Mb
+#' asks the question actually of interest, whether the model gets the REGIONAL
+#' rate right.
+#'
+#' @param Lambda Expected counts on `bins`, from [predict_lambda_bins()].
+#' @param obs Observed counts, bins in rows and samples in columns, over the
+#'   whole genome.
+#' @param bins The bins `Lambda` was computed on.
+#' @param region_of_bin Region index of every bin in the genome.
+#' @return A named vector of RMSEs, one per patient.
+patient_rmse <- function(Lambda, obs, bins, region_of_bin) {
+  grp <- region_of_bin[bins]
+  keep <- !is.na(grp)
+  agg_pred <- rowsum(Lambda[keep, , drop = FALSE], grp[keep])
+  agg_obs <- rowsum(obs[bins[keep], colnames(Lambda), drop = FALSE], grp[keep])
+  sqrt(colMeans((agg_pred - agg_obs)^2))
+}
+
+
+#' Observed counts per bin and sample
+#'
+#' @param bin_of_mut Bin index of each mutation.
+#' @param sample_of_mut Sample of each mutation.
+#' @param n_bins Total number of bins.
+#' @return An `n_bins x nsamples` integer matrix.
+count_by_bin <- function(bin_of_mut, sample_of_mut, n_bins) {
+  tab <- table(factor(bin_of_mut, levels = seq_len(n_bins)),
+               as.character(sample_of_mut))
+  # as.integer(), not as.matrix(): a table of this size is worth keeping in four
+  # bytes an entry rather than eight.
+  matrix(as.integer(tab), nrow = n_bins,
+         dimnames = list(NULL, colnames(tab)))
+}
+
+
 #' Best cosine similarity of each column against a reference catalogue
 #'
 #' Replaces `SigPoisProcess::match_to_RefSigs()`, which was not carried over into
@@ -137,10 +259,13 @@ get_baseline <- function(fit) {
 #' Most probable signature for every mutation
 #'
 #' @param fit A fitted model.
-#' @param data The cohort it was fitted on.
+#' @param data The cohort it was fitted on, or a bare `GRanges` of mutations.
+#'   The second form is for comparing SEVERAL fits on ONE fixed set of
+#'   mutations: `mcols` need only carry the covariates that fit uses, so a set
+#'   of mutations can be pushed through a whole sequence of nested models.
 #' @return A character vector, one signature name per mutation.
 assign_mutations <- function(fit, data) {
-  gr <- data$gr_Mutations
+  gr <- if (methods::is(data, "GRanges")) data else data$gr_Mutations
   Phi <- get_baseline(fit)
   X <- as.matrix(GenomicRanges::mcols(gr)[, rownames(fit$Betas), drop = FALSE])
 
