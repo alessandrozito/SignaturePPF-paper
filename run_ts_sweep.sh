@@ -27,16 +27,24 @@ BASE="$PAPER/output/Comparison_TensorSignatures/$TAG"
 RANKS=("$@")
 if [ ${#RANKS[@]} -eq 0 ]; then RANKS=(4 5 6 7 8 9 10 11 12); fi
 
-for f in "$PY" "$SCRIPT" "$BASE/snv_counts_long.tsv.gz"; do
-  if [ ! -e "$f" ]; then
-    echo "MISSING: $f"
-    case "$f" in
-      *python)     echo "  -> run setup_tensorsig_env.sh" ;;
-      *.tsv.gz)    echo "  -> run Rscript R/Load_ChromatinStates_ICGC.R" ;;
-    esac
-    exit 1
-  fi
-done
+# Checked one at a time so the hint names the right fix regardless of how the
+# paths were overridden - keying off the filename would miss a TENSORSIG_PYTHON
+# that does not happen to end in "python".
+if [ ! -x "$PY" ]; then
+  echo "MISSING (or not executable): $PY"
+  echo "  -> build the environment once:  ./setup_tensorsig_env.sh"
+  exit 1
+fi
+if [ ! -e "$SCRIPT" ]; then
+  echo "MISSING: $SCRIPT"
+  echo "  -> is SIGNATUREPPF_PAPER correct?  currently: $PAPER"
+  exit 1
+fi
+if [ ! -e "$BASE/snv_counts_long.tsv.gz" ]; then
+  echo "MISSING: $BASE/snv_counts_long.tsv.gz"
+  echo "  -> export the tensor first:  Rscript R/Comparison_TensorSignatures.R"
+  exit 1
+fi
 
 export SIGNATUREPPF_PAPER="$PAPER"
 
@@ -70,4 +78,4 @@ for d in "$BASE"/rank*/; do
 done
 
 echo
-echo "Next: Rscript R/Comparison_TensorSignatures.R"
+echo "Next: Rscript R/Comparison_TensorSignatures.R  (resumes at the comparison)"

@@ -1,22 +1,60 @@
 ################################################################################
-# TensorSignatures comparison: import the fits and compare against SignaturePPF.
+# Comparison against TensorSignatures (Vohringer et al., Nat Commun 2021),
+# end to end: builds the shared dataset, fits both methods, and compares them.
 #
-# Requires R/Load_ChromatinStates_ICGC.R and then the rank sweep (run_ts_sweep.sh)
-# to have run.
+# Usage:  Rscript R/Comparison_TensorSignatures.R [rank]
+#
+#   rank   optional. Which TensorSignatures rank to compare against. Default is
+#          the lowest-BIC rank in the sweep.
+#
+# Every expensive step is cached, so rerunning only redoes what is missing:
+# the chromatin dataset, the SignaturePPF fit and each TensorSignatures rank are
+# all skipped if their output is already on disk.
+#
+# PREREQUISITE - the Python environment
+# -------------------------------------
+# TensorSignatures 0.5.0 pins tensorflow <= 1.15, whose wheels stop at Python
+# 3.7, so it cannot share an interpreter with anything modern and needs its own
+# conda environment. Build it once with
+#
+#     ./setup_tensorsig_env.sh
+#
+# This script does NOT build it automatically: it downloads and installs a
+# miniconda distribution under $HOME, which is not something an analysis script
+# should do behind your back. It stops with that command if the environment is
+# missing.
+#
+# WHY THE TWO MODELS ARE NOT TRIVIALLY COMPARABLE
+# -----------------------------------------------
+# Both extend 96-channel NMF with genomic covariates, but parameterise the
+# genomic dependence differently - continuous log-linear against discrete
+# per-state amplitudes - and only TensorSignatures models strand asymmetry, only
+# PPF models copy number. See the header of R/TensorSignatures_functions.R for
+# the full table and for the strand limitation, which must be read before
+# reporting anything about strand.
+#
+# The comparison is therefore run on COMMON GROUND: the ChromHMM 15-state
+# annotation of breast epithelium. The bins ARE the ChromHMM segments, so the
+# state assignment is exact for both methods, and PPF is given the states as
+# one-hot covariates with `Quies` dropped as reference - which makes each beta
+# the log enrichment relative to Quies, the same quantity TensorSignatures
+# reports as a state amplitude.
 #
 # Three comparisons, in increasing order of what they actually test:
 #
-#   1. SPECTRA   - do the two methods find the same signatures? Matched
-#                  one-to-one by cosine similarity (Hungarian, not argmax).
-#   2. EFFECTS   - do they agree on the chromatin-state effect of each matched
-#                  signature? Both are log enrichments relative to the reference
-#                  state, so they are directly comparable with no rescaling.
-#   3. RATE      - do they predict WHERE the mutations are? This is where the
-#                  models genuinely differ: PPF has an intensity per bin, while
-#                  TensorSignatures can only place a total per (state, sample)
-#                  and has no notion of position within a state.
+#   SPECTRA  do the two methods find the same signatures? Matched one-to-one by
+#            cosine similarity (Hungarian, not argmax).
+#   EFFECTS  do they agree on the chromatin-state effect of each matched
+#            signature? Both are log enrichments against the same reference
+#            state, so they compare directly with no rescaling.
+#   RATE     do they predict WHERE the mutations are? This is where the models
+#            genuinely differ: PPF has an intensity per bin, TensorSignatures
+#            can only place a total per (state, sample) and has no notion of
+#            position within a state.
 #
-# Usage:  Rscript R/Comparison_TensorSignatures.R [rank]
+# Runtime: the ChromHMM segmentation is ~600k segments and copy number is built
+# per sample, so the first stage takes tens of minutes and a few GB. The rank
+# sweep is the long pole - hours on CPU for the full range of ranks.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -31,33 +69,134 @@ source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
                             unset = path.expand("~/SignaturePPF-paper")),
                  "config.R"))
 load_functions()
+check_inputs()
 
 REFERENCE_STATE <- "Quies"
 TAG <- "icgc_chromatin"
+RANKS <- 4:12                 # the sweep
+K_PPF <- 20                   # upper bound; the compressive prior selects K
+
 TS_BASE <- file.path(DIR_TENSORSIG, TAG)
+PATH_DATASET <- file.path(DIR_TENSORSIG, "dataset_chromatin.rds.gzip")
+PATH_PPF_FIT <- file.path(DIR_TENSORSIG, "fit_ppf_chromatin.rds.gzip")
 
-dat <- readRDS(file.path(DIR_TENSORSIG, "dataset_chromatin.rds.gzip"))
-fit <- readRDS(file.path(DIR_TENSORSIG, "fit_ppf_chromatin.rds.gzip"))
+args <- commandArgs(trailingOnly = TRUE)
+rank_requested <- if (length(args)) as.integer(args[1]) else NA_integer_
 
 ################################################################################
-# 1. Rank selection
-#
-#    TensorSignatures has no compressive prior, so its number of signatures is
-#    chosen by information criterion over an explicit sweep. PPF selects K
-#    through the prior instead, which is one of the differences worth reporting.
+# 1. The chromatin-state dataset
 ################################################################################
-sweep <- ts_sweep_summary(TS_BASE)
-if (is.null(sweep)) {
-  stop("no TensorSignatures fits under ", TS_BASE,
-       "\n  Run run_ts_sweep.sh first.")
+message("\n== 1. chromatin-state dataset ==")
+if (file.exists(PATH_DATASET)) {
+  message("cached: ", basename(PATH_DATASET))
+  dat <- readRDS(PATH_DATASET)
+} else {
+  gr_tumor <- readRDS(PATH_ICGC_SNV)
+
+  # Blacklisted mutations are dropped outright rather than left to bin weights:
+  # a mutation inside a blacklisted region has no usable exposure behind it.
+  blacklist <- rtracklayer::import(PATH_BLACKLIST)
+  gr_tumor <- gr_tumor[-S4Vectors::queryHits(
+    GenomicRanges::findOverlaps(gr_tumor, blacklist))]
+  gr_tumor <- gr_tumor[GenomicRanges::seqnames(gr_tumor) != "chrY"]
+
+  df_copy <- readr::read_tsv(PATH_ICGC_CN, show_col_types = FALSE)
+  gr_copy <- GenomicRanges::GRanges(
+    seqnames = paste0("chr", df_copy$chr),
+    ranges = IRanges::IRanges(start = df_copy$start, end = df_copy$end),
+    strand = "*", sample = df_copy$sampleID, score = df_copy$value)
+
+  dat <- build_chromatin_dataset(gr_tumor, gr_copy, reference = REFERENCE_STATE)
+  saveRDS(dat, PATH_DATASET, compress = "gzip")
 }
+
+invisible(SignaturePPF_validate(dat))
+message("bins: ", nrow(dat$SignalTrack), " | states: ", ncol(dat$SignalTrack) + 1,
+        " | samples: ", ncol(dat$CopyTrack),
+        " | mutations: ", length(dat$gr_Mutations))
+
+################################################################################
+# 2. Fit SignaturePPF
+#
+#    De novo, so the signature set is estimated rather than assumed - part of
+#    what the comparison is about is which signatures each method finds. K is an
+#    upper bound; the compressive prior parks the rest.
+################################################################################
+message("\n== 2. SignaturePPF fit ==")
+if (file.exists(PATH_PPF_FIT)) {
+  message("cached: ", basename(PATH_PPF_FIT))
+  fit <- readRDS(PATH_PPF_FIT)
+} else {
+  fit <- SignaturePPF(dat,
+                      K = K_PPF,
+                      method = "map",
+                      controls = SignaturePPF_control(maxiter = 500, tol = 1e-6),
+                      seed = SEED,
+                      verbose = TRUE)
+  saveRDS(fit, PATH_PPF_FIT, compress = "gzip")
+}
+print(fit)
+
+ref_match <- match_to_cosmic(fit$Signatures)
+ref_match$mu <- as.numeric(fit$Mu[ref_match$signature])
+ref_match <- ref_match[order(-ref_match$mu), ]
+write.csv(ref_match, file.path(DIR_TENSORSIG, "ppf_signature_cosmic_match.csv"),
+          row.names = FALSE)
+print(ref_match)
+
+ggsave(file.path(FIG_DIR, "TensorSignatures_PPF_chromatin_betas.pdf"),
+       plot_chromatin_betas(fit, reference = REFERENCE_STATE),
+       width = 11, height = 8)
+
+################################################################################
+# 3. Export the same data as a TensorSignatures tensor
+################################################################################
+message("\n== 3. export tensor ==")
+export_ts_chromatin(dat, out_dir = DIR_TENSORSIG, tag = TAG)
+
+################################################################################
+# 4. Fit TensorSignatures
+#
+#    Shelled out, because it runs under a different interpreter. run_ts_sweep.sh
+#    skips ranks that already have a complete fit, so this is cheap on a rerun
+#    and restartable after an interruption.
+#
+#    TensorSignatures has no compressive prior, so its number of signatures has
+#    to be chosen by an explicit sweep and an information criterion - unlike PPF,
+#    where the prior selects K. That difference is itself part of the comparison,
+#    which is why the sweep is a step here and not a tuning detail.
+################################################################################
+message("\n== 4. TensorSignatures rank sweep ==")
+if (!file.exists(TENSORSIG_PYTHON)) {
+  stop("the TensorSignatures environment is missing:\n  ", TENSORSIG_PYTHON,
+       "\n\nBuild it once with\n  ./setup_tensorsig_env.sh\n",
+       "\nIt installs miniconda under $HOME (removable with rm -rf ~/miniconda3).",
+       call. = FALSE)
+}
+
+sweep_script <- file.path(PAPER_ROOT, "run_ts_sweep.sh")
+status <- system2(sweep_script, args = as.character(RANKS),
+                  env = c(paste0("SIGNATUREPPF_PAPER=", shQuote(PAPER_ROOT)),
+                          paste0("TENSORSIG_PYTHON=", shQuote(TENSORSIG_PYTHON)),
+                          paste0("TS_TAG=", shQuote(TAG))))
+if (status != 0) {
+  stop("the TensorSignatures sweep exited with status ", status,
+       "\n  Rerun it directly to see the full log:  ./run_ts_sweep.sh",
+       call. = FALSE)
+}
+
+################################################################################
+# 5. Rank selection
+################################################################################
+message("\n== 5. rank selection ==")
+sweep <- ts_sweep_summary(TS_BASE)
+if (is.null(sweep)) stop("no TensorSignatures fits under ", TS_BASE)
 write.csv(sweep, file.path(DIR_TENSORSIG, "ts_rank_sweep.csv"), row.names = FALSE)
 print(sweep)
 
-args <- commandArgs(trailingOnly = TRUE)
-rank <- if (length(args)) as.integer(args[1]) else sweep$rank[which.min(sweep$BIC)]
-message("using TensorSignatures rank ", rank,
-        if (!length(args)) " (lowest BIC)" else " (given on the command line)")
+rank <- if (!is.na(rank_requested)) rank_requested else sweep$rank[which.min(sweep$BIC)]
+message("using rank ", rank,
+        if (is.na(rank_requested)) " (lowest BIC)" else " (given on the command line)")
 
 TS_DIR <- file.path(TS_BASE, sprintf("rank%02d", rank))
 if (!dir.exists(TS_DIR)) stop("no fit at ", TS_DIR)
@@ -68,26 +207,28 @@ p_sweep <- ggplot(sweep, aes(rank, BIC)) +
   labs(x = "Rank (number of signatures)", y = "BIC",
        title = "TensorSignatures rank selection") +
   theme_bw()
-ggsave(file.path(FIG_DIR, "TensorSignatures_rank_sweep.pdf"), p_sweep, width = 5, height = 3.5)
+ggsave(file.path(FIG_DIR, "TensorSignatures_rank_sweep.pdf"), p_sweep,
+       width = 5, height = 3.5)
 
 ################################################################################
-# 2. Spectra
+# 6. Compare: signature spectra
 ################################################################################
+message("\n== 6. spectra ==")
 ts <- read_ts_fit(TS_DIR)
 match_tbl <- hungarian_match_signatures(ts$signatures, fit$Signatures)
-message("matched ", nrow(match_tbl), " signature pair(s); ",
-        "unmatched TS: ", paste(attr(match_tbl, "unmatched_ts"), collapse = ", "),
+message("matched ", nrow(match_tbl), " pair(s) | unmatched TS: ",
+        paste(attr(match_tbl, "unmatched_ts"), collapse = ", "),
         " | unmatched PPF: ",
         paste(attr(match_tbl, "unmatched_ppf"), collapse = ", "))
+write.csv(match_tbl, file.path(DIR_TENSORSIG, "signature_matching.csv"),
+          row.names = FALSE)
 
-# Each method against COSMIC, which is the neutral reference for "did it find a
-# known signature".
+# Each method against COSMIC, the neutral reference for "did it find a known
+# signature".
 cosmic_cmp <- rbind(
   cbind(method = "SignaturePPF", match_to_cosmic(fit$Signatures)),
   cbind(method = "TensorSignatures", match_to_cosmic(ts$signatures)))
 write.csv(cosmic_cmp, file.path(DIR_TENSORSIG, "signature_cosmic_comparison.csv"),
-          row.names = FALSE)
-write.csv(match_tbl, file.path(DIR_TENSORSIG, "signature_matching.csv"),
           row.names = FALSE)
 print(cosmic_cmp)
 
@@ -96,11 +237,13 @@ p_cos <- ggplot(cosmic_cmp, aes(method, cosine)) +
   geom_jitter(width = 0.15, height = 0, size = 1.6, alpha = 0.8) +
   labs(x = NULL, y = "Best cosine similarity to COSMIC v3.4") +
   theme_bw()
-ggsave(file.path(FIG_DIR, "TensorSignatures_cosine_to_cosmic.pdf"), p_cos, width = 4.5, height = 4)
+ggsave(file.path(FIG_DIR, "TensorSignatures_cosine_to_cosmic.pdf"), p_cos,
+       width = 4.5, height = 4)
 
 ################################################################################
-# 3. Chromatin-state effects
+# 7. Compare: chromatin-state effects
 ################################################################################
+message("\n== 7. chromatin-state effects ==")
 cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE)
 write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
           row.names = FALSE)
@@ -122,11 +265,12 @@ write.csv(effect_agreement,
 print(effect_agreement)
 
 ################################################################################
-# 4. Regional mutation rate
+# 8. Compare: regional mutation rate
 #
-#    The comparison that separates the two models: aggregated into 1 Mb windows,
+#    The comparison that separates the two models. Aggregated into 1 Mb windows,
 #    how close is each method's predicted burden to the observed one?
 ################################################################################
+message("\n== 8. regional mutation rate ==")
 rate <- compare_mutation_rate(dat, fit, TS_DIR, window = 1e6)
 write.csv(rate, file.path(DIR_TENSORSIG, "mutation_rate_windows.csv"),
           row.names = FALSE)
@@ -139,4 +283,4 @@ print(scores)
 ggsave(file.path(FIG_DIR, "TensorSignatures_mutation_rate_along_genome.pdf"),
        plot_mutation_rate(rate), width = 12, height = 4)
 
-message("done: outputs in ", DIR_TENSORSIG, " and ", FIG_DIR)
+message("\ndone: tables in ", DIR_TENSORSIG, "\n      figures in ", FIG_DIR)

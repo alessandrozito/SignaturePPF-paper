@@ -50,14 +50,19 @@ MAP only. Runtime a few minutes per cohort.
 
 ### 2. Comparison against TensorSignatures
 
-Three steps, because the middle one runs under a different Python.
-
 ```
-Rscript R/Load_ChromatinStates_ICGC.R     # build data, fit PPF, export tensor
 ./setup_tensorsig_env.sh                  # once: build the conda environment
-./run_ts_sweep.sh                         # fit TensorSignatures over ranks
-Rscript R/Comparison_TensorSignatures.R   # import and compare
+Rscript R/Comparison_TensorSignatures.R   # everything else, end to end
 ```
+
+The second command builds the shared dataset, fits SignaturePPF, exports the
+tensor, drives the TensorSignatures rank sweep (shelling out to the Python 3.7
+environment) and runs the comparison. Every expensive step is cached, so a
+rerun only redoes what is missing and an interrupted sweep resumes.
+
+The environment is a separate command on purpose: `setup_tensorsig_env.sh`
+downloads and installs miniconda under `$HOME`, which an analysis script should
+not do behind your back.
 
 Both methods are fitted to the same mutations on the same genomic partition, the
 ChromHMM 15-state annotation of breast epithelium (Roadmap E028). The bins *are*
@@ -90,16 +95,16 @@ them means redoing the annotation from the raw calls.
 ```
 config.R                              paths and shared settings, sourced by every script
 
-R/Load_ChromatinStates_ICGC.R         build the chromatin dataset, fit PPF, export the tensor
 R/Application_replicability_80Breast.R  the two-cohort replication analysis
-R/Comparison_TensorSignatures.R       import the TensorSignatures fits and compare
+R/Comparison_TensorSignatures.R       the TensorSignatures comparison, end to end
 
 R/Utils_functions.R                   cohort -> model form, mutation assignment, intensity
 R/Plot_functions.R                    figure helpers
 R/TensorSignatures_functions.R        chromatin states, tensor export, comparison
 
 setup_tensorsig_env.sh                build the TensorSignatures conda environment
-run_ts_sweep.sh                       the TensorSignatures rank sweep
+run_ts_sweep.sh                       the TensorSignatures rank sweep, driven by the
+                                      script above but runnable on its own
 python/run_tensorsignatures.py        run under that environment, not the system Python
 
 data/                                 inputs (not tracked; see data/MANIFEST.tsv)
@@ -121,7 +126,7 @@ reproducible from the scripts.
 | `Replication_burden_along_genome.pdf` | `R/Application_replicability_80Breast.R` |
 | `Replication_betas_Breast80.pdf`, `Replication_betas_BreastICGC.pdf` | `R/Application_replicability_80Breast.R` |
 | `Replication_betas_scatter.pdf`, `Replication_betas_difference.pdf` | `R/Application_replicability_80Breast.R` |
-| `TensorSignatures_PPF_chromatin_betas.pdf` | `R/Load_ChromatinStates_ICGC.R` |
+| `TensorSignatures_PPF_chromatin_betas.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_rank_sweep.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_cosine_to_cosmic.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_chromatin_effects_pooled.pdf`, `..._by_signature.pdf` | `R/Comparison_TensorSignatures.R` |

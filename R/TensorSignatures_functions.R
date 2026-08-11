@@ -294,7 +294,7 @@ read_ts_fit <- function(dir) {
   f_amp <- file.path(dir, "ts_state_amplitudes.tsv")
   if (!file.exists(f_sig)) {
     warning("no TensorSignatures output in ", dir,
-            " - run the Python step first (run_ts_sweep.sh)")
+            " - run the sweep first (R/Comparison_TensorSignatures.R)")
     return(NULL)
   }
   sig <- as.data.frame(readr::read_tsv(f_sig, show_col_types = FALSE))
