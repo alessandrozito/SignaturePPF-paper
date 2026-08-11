@@ -50,11 +50,6 @@ load_functions()
 check_inputs(PATH_ICGC10KB)
 
 ## ------------------------------------------------------------------ settings
-# DO1020 was excluded in the exploratory pass as an outlier, and is excluded
-# here so the sequence is fitted to one cohort throughout. Note that the
-# replication analysis keeps it - the two are not directly comparable.
-EXCLUDE_SAMPLES <- "DO1020"
-
 HOLDOUT_FRAC <- 0.20      # share of 1 Mb regions held out, within each chromosome
 REGION_WIDTH <- 1e6       # resolution the mutation rate is scored at
 MAXITER <- 4000
@@ -63,7 +58,7 @@ TOL <- 1e-6
 ################################################################################
 # 1. Data
 ################################################################################
-dataICGC <- load_cohort(PATH_ICGC10KB, drop_samples = EXCLUDE_SAMPLES)
+dataICGC <- load_cohort(PATH_ICGC10KB)
 invisible(SignaturePPF_validate(dataICGC))
 
 covariate_names <- colnames(dataICGC$SignalTrack)
@@ -106,8 +101,7 @@ message(sprintf("Split: %s training bins, %s held out (%.1f%%).",
                 format(length(test_bins), big.mark = ","),
                 100 * length(test_bins) / n_bins))
 
-saveRDS(list(train_bins = train_bins, test_bins = test_bins,
-             exclude_samples = EXCLUDE_SAMPLES, seed = SEED),
+saveRDS(list(train_bins = train_bins, test_bins = test_bins, seed = SEED),
         file.path(DIR_STABILITY, "train_test_bins.rds.gzip"), compress = "gzip")
 
 # The mutations themselves, held fixed across the whole sequence of models: only

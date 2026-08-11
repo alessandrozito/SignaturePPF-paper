@@ -392,9 +392,33 @@ hungarian_match_signatures <- function(S_ts, S_ppf) {
 #'
 #' TS amplitudes are relative to ITS state 1, so they are re-referenced to the
 #' PPF reference state before joining.
-compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies") {
+#'
+#' @param mu_min Drop PPF signatures whose relevance weight falls below this.
+#'   The compressive prior parks an unsupported signature near `epsilon`, and its
+#'   coefficients are then draws from the prior rather than estimates - so
+#'   comparing them against a TensorSignatures amplitude measures the prior. The
+#'   drop happens BEFORE the matching, not after: the assignment is one-to-one,
+#'   so a dead PPF signature left in the pool can win a TS signature and displace
+#'   a live one, and filtering the result afterwards would leave that TS
+#'   signature unpaired rather than paired correctly.
+compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies",
+                                      mu_min = 0.05) {
   ts <- read_ts_fit(ts_dir)
   if (is.null(ts)) return(NULL)
+
+  live <- colnames(fit$Signatures)[fit$Mu[colnames(fit$Signatures)] >= mu_min]
+  if (!length(live)) {
+    stop("every PPF signature has mu < ", mu_min, ": nothing left to compare.",
+         call. = FALSE)
+  }
+  if (length(live) < ncol(fit$Signatures)) {
+    message("dropping ", ncol(fit$Signatures) - length(live), " of ",
+            ncol(fit$Signatures), " PPF signature(s) with mu < ", mu_min, ": ",
+            paste(setdiff(colnames(fit$Signatures), live), collapse = ", "))
+  }
+  fit$Signatures <- fit$Signatures[, live, drop = FALSE]
+  fit$Betas <- fit$Betas[, live, drop = FALSE]
+  fit$Mu <- fit$Mu[live]
   key <- readr::read_tsv(file.path(ts_dir, "state_key.tsv"), show_col_types = FALSE)
   amp <- readr::read_tsv(file.path(ts_dir, "ts_state_amplitudes.tsv"),
                          show_col_types = FALSE)
@@ -538,34 +562,84 @@ plot_chromatin_betas <- function(fit, reference = "Quies") {
 
 #' PPF beta against TensorSignatures amplitude
 #'
-#' `by_signature = TRUE` gives one panel per matched pair with its
-#' within-signature correlation, so agreement can be judged signature by
-#' signature: a pooled correlation can look reasonable while individual
-#' signatures disagree, and vice versa.
-plot_chromatin_effects <- function(cmp, by_signature = FALSE, ncol = 4,
-                                   free_scales = TRUE) {
+#' The same points, cut two ways. Both cuts are needed because a pooled
+#' correlation can look reasonable while the structure underneath disagrees:
+#'
+#' * `by = "signature"` gives one panel per matched pair, each showing how one
+#'   signature's profile ACROSS the states compares. This asks whether the two
+#'   methods agree on where a given process is enriched.
+#' * `by = "state"` gives one panel per chromatin state, each showing how the
+#'   signatures compare WITHIN that state. This asks whether the two methods
+#'   agree on what a given piece of chromatin does, and it is the cut that
+#'   exposes a state on which the methods disagree for every signature at once -
+#'   which in the by-signature view is spread thin across every panel and easy
+#'   to miss.
+#' * `by = "none"` pools everything into one panel.
+#'
+#' The colour follows the cut: faceting by signature colours by state and vice
+#' versa, so in either view the point's other coordinate is still readable.
+#'
+#' @param cmp Output of [compare_chromatin_effects()].
+#' @param by What each panel holds fixed.
+#' @param ncol Panels per row.
+#' @param free_scales Free axes per panel. The states span a far wider range of
+#'   effects than the signatures do, so fixed scales leave most panels empty.
+plot_chromatin_effects <- function(cmp, by = c("signature", "state", "none"),
+                                   ncol = 4, free_scales = TRUE) {
+  by <- match.arg(by)
   cmp$state <- factor(cmp$state, levels = CHROM_STATES)
+  sigs <- sort(unique(as.character(cmp$signature)))
+  cmp$signature <- factor(cmp$signature, levels = sigs)
+
+  facet_var <- switch(
+    by,
+    none = NULL,
+    state = "state",
+    signature = if ("pair_label" %in% names(cmp)) "pair_label" else "signature")
+
   p <- ggplot2::ggplot(cmp, ggplot2::aes(.data$ts_logratio, .data$beta)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     ggplot2::geom_hline(yintercept = 0, linewidth = 0.2, colour = "grey70") +
-    ggplot2::geom_vline(xintercept = 0, linewidth = 0.2, colour = "grey70") +
-    ggplot2::geom_point(ggplot2::aes(colour = .data$state), size = 1.8) +
-    ggplot2::scale_colour_manual(values = CHROM_COLS, drop = FALSE, name = "State") +
+    ggplot2::geom_vline(xintercept = 0, linewidth = 0.2, colour = "grey70")
+
+  p <- if (identical(by, "state")) {
+    p + ggplot2::geom_point(ggplot2::aes(colour = .data$signature), size = 1.8) +
+      ggplot2::scale_colour_manual(values = sig_palette(sigs), drop = FALSE,
+                                   name = "Signature")
+  } else {
+    p + ggplot2::geom_point(ggplot2::aes(colour = .data$state), size = 1.8) +
+      ggplot2::scale_colour_manual(values = CHROM_COLS, drop = FALSE,
+                                   name = "State")
+  }
+
+  p <- p +
     ggplot2::labs(x = "TensorSignatures log amplitude",
                   y = expression(SignaturePPF ~ beta),
-                  title = "Chromatin-state effects: SignaturePPF vs TensorSignatures") +
+                  title = switch(by,
+                                 none = "Chromatin-state effects",
+                                 state = "By chromatin state",
+                                 signature = "By signature")) +
     ggplot2::theme_bw()
-  if (!by_signature) return(p)
 
-  facet_var <- if ("pair_label" %in% names(cmp)) "pair_label" else "signature"
+  if (is.null(facet_var)) return(p)
+
+  # Correlation within each panel, which is the number the panel is there to
+  # show. Withheld below three points: a correlation over two points is 1 or -1
+  # by construction and says nothing.
   lab <- do.call(rbind, lapply(split(cmp, cmp[[facet_var]]), function(z) {
+    if (!nrow(z)) return(NULL)
     r <- if (nrow(z) >= 3) cor(z$beta, z$ts_logratio) else NA_real_
-    data.frame(f = z[[facet_var]][1], n = nrow(z),
+    data.frame(f = as.character(z[[facet_var]][1]), n = nrow(z),
                txt = if (is.na(r)) sprintf("n=%d", nrow(z))
                      else sprintf("r=%.2f (n=%d)", r, nrow(z)),
                stringsAsFactors = FALSE)
   }))
   names(lab)[1] <- facet_var
+  # Back to the factor the panels are keyed on, or the labels land in a set of
+  # extra panels of their own.
+  if (is.factor(cmp[[facet_var]])) {
+    lab[[facet_var]] <- factor(lab[[facet_var]], levels = levels(cmp[[facet_var]]))
+  }
 
   p + ggplot2::facet_wrap(stats::as.formula(paste("~", facet_var)), ncol = ncol,
                           scales = if (free_scales) "free" else "fixed") +

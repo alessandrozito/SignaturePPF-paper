@@ -48,6 +48,7 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(readr)
   library(ggplot2)
+  library(patchwork)
 })
 
 source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
@@ -60,6 +61,7 @@ REFERENCE_STATE <- "Quies"
 TAG <- "icgc_chromatin"
 RANKS <- 4:12                 # list of ranks tested by TensorSignatures
 K_PPF <- 12                   # upper bound to the number of signatures in PPF
+MU_MIN <- 0.05                # PPF signatures below this are compressed, not fitted
 
 TS_BASE <- file.path(DIR_TENSORSIG, TAG)
 PATH_DATASET <- file.path(DIR_TENSORSIG, "dataset_chromatin.rds.gzip")
@@ -219,14 +221,23 @@ cosmic_cmp <- rbind(
 # 7. Compare: chromatin-state effects
 ################################################################################
 message("\n== 7. chromatin-state effects ==")
-cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE)
+cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE,
+                                 mu_min = MU_MIN)
 write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
           row.names = FALSE)
 
-p_states <- plot_chromatin_effects(cmp, by_signature = TRUE)
+# The same points cut two ways, side by side: one panel per signature (does the
+# pair agree on where this process sits along the genome?) and one panel per
+# chromatin state (do the methods agree on what this piece of chromatin does?).
+p_by_signature <- plot_chromatin_effects(cmp, by = "signature")
+p_by_state <- plot_chromatin_effects(cmp, by = "state")
 
 ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_signature.pdf"),
-       plot_chromatin_effects(cmp, by_signature = TRUE), width = 12, height = 9)
+       p_by_signature, width = 12, height = 9)
+ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects_by_state.pdf"),
+       p_by_state, width = 12, height = 9)
+ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects.pdf"),
+       p_by_signature + p_by_state, width = 22, height = 9)
 
 effect_agreement <- data.frame(
   n_pairs = length(unique(cmp$pair_label)),

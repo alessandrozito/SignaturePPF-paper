@@ -84,6 +84,13 @@ rate in 1 Mb windows. The third is where the models genuinely differ —
 TensorSignatures predicts a total per (state, sample) and has no notion of
 position within a state.
 
+The chromatin-state effects are shown cut two ways, side by side: one panel per
+matched signature, and one panel per chromatin state. PPF signatures with
+`mu < 0.05` are dropped *before* the matching — the compressive prior has
+switched them off, so their coefficients are prior draws, and because the
+matching is one-to-one a dead signature left in the pool can claim a
+TensorSignatures signature and displace a live one.
+
 **TensorSignatures needs its own environment.** Version 0.5.0 pins
 `tensorflow <= 1.15`, whose wheels stop at Python 3.7, so it cannot share an
 interpreter with anything modern. `setup_tensorsig_env.sh` builds it under
@@ -112,8 +119,7 @@ same likelihood, same compressive prior, same optimiser, so the first point of
 every curve is the nested null of the ones after it rather than another method's
 answer.
 
-Note that this analysis excludes sample `DO1020` and the replication analysis
-does not, so relevance weights are not directly comparable between the two.
+Runs on the full cohort — no samples are excluded.
 
 **Do not report TensorSignatures strand-asymmetry results from this pipeline.**
 The mutation channels are already pyrimidine-normalised by the preprocessing, so
@@ -164,9 +170,7 @@ reproducible from the scripts.
 | `Stability_riverplots.pdf` | `R/Application_stability_of_covariates.R` |
 | `Stability_rmse.pdf` | `R/Application_stability_of_covariates.R` |
 | `TensorSignatures_PPF_chromatin_betas.pdf` | `R/Comparison_TensorSignatures.R` |
-| `TensorSignatures_rank_sweep.pdf` | `R/Comparison_TensorSignatures.R` |
-| `TensorSignatures_cosine_to_cosmic.pdf` | `R/Comparison_TensorSignatures.R` |
-| `TensorSignatures_chromatin_effects_pooled.pdf`, `..._by_signature.pdf` | `R/Comparison_TensorSignatures.R` |
+| `TensorSignatures_chromatin_effects.pdf` (the two cuts side by side), `..._by_signature.pdf`, `..._by_state.pdf` | `R/Comparison_TensorSignatures.R` |
 | `TensorSignatures_mutation_rate_along_genome.pdf` | `R/Comparison_TensorSignatures.R` |
 
 ## Note on the predecessor package
