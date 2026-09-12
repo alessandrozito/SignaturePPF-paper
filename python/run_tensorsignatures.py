@@ -16,7 +16,7 @@ R/Comparison_TensorSignatures.R for how it was built):
 Verified against: tensorsignatures 0.5.0, tensorflow 1.15.0, numpy 1.16.6,
 protobuf 3.20.3.
 
-TENSOR LAYOUT (verified against the installed package, not assumed)
+TENSOR LAYOUT 
 ------------------------------------------------------------------
 TensorSignature.__init__ reads
     samples          = snv.shape[-1]
@@ -36,12 +36,12 @@ supported mode: index 2 is TensorSignatures' own "unknown" state. The fitted
 strand amplitudes (`a`, `b`) are therefore uninformative BY CONSTRUCTION and are
 not written out.
 
-WHAT COMES OUT, AND WHY
+OUTPUT
 -----------------------
 The comparison quantity is the log intensity ratio between genomic states, per
 signature, because that is what both models estimate:
 
-    PPF               beta_kl * (E[x_l | state 2] - E[x_l | state 1])
+    PPF               beta_kl 
     TensorSignatures  log( amplitude of state 2 / amplitude of state 1 )
 
 In the fitted object the state amplitude of signature k in state l is
@@ -143,7 +143,7 @@ def load_exposure(indir, snv_shape, samples):
 
       2. masking the uninformative strand cells. `_A[2,2] == 1` is the neutral
          strand state, but the model still predicts counts in all 9 strand cells,
-         while our data has mass only in [2,2]. Left alone, the optimiser has to
+         while our data has mass only in [2,2]. Left alone, the optimizer has to
          drive the strand amplitudes to -inf to explain 8 empty cells. Setting
          N = 0 outside [2,2] makes those predictions ~1e-6 and removes the problem.
 

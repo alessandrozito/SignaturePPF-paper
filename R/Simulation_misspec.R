@@ -1,4 +1,7 @@
 ################################################################################
+# Produces: no figure. Runs the study behind Figures S2 and S3
+#           and Tables S3 and S4
+#
 # Simulation study: behaviour under misspecification
 #
 # Seven scenarios, each adding one violation of the model's assumptions on top of

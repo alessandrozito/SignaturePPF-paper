@@ -1,4 +1,6 @@
 ################################################################################
+# Produces: Figure S9
+#
 # Stability of covariate effects under a growing covariate set
 #
 # One train/test split of the GENOME (whole megabases held out, stratified by
@@ -96,7 +98,10 @@ fit_map <- function(covs, out_file, betas_zero = FALSE) {
     return(readRDS(out_file))
   }
   train <- subset_bins(dataICGC, train_bins, bin_of_mut, covariates = covs)
+  # NOT pruned: the twelve models are compared coefficient by coefficient along
+  # the selection path, so every one of them has to report the same signatures.
   fit <- SignaturePPF(
+    prune_solution = FALSE,
     train,
     sigs = CosmicSigs,
     sigs_fixed = TRUE,
@@ -165,9 +170,9 @@ model_labels <- c("No covariates", paste0("+", sel_path$covariate))
 ################################################################################
 # OUTPUT 1: each covariate's coefficient along the sequence
 ################################################################################
-p_betas <- plot_beta_path(fits[-1], covariate_order = sel_path$covariate)
+p_betas <- plot_beta_path(fits[-1], covariate_order = sel_path$covariate, mu_cutoff = 0)
 ggsave(file.path(FIG_DIR, "Stability_betas_sequence.pdf"), p_betas,
-       width = 12.1, height = 3.2)
+       width = 12.5, height = 4.66)
 
 ################################################################################
 # OUTPUT 2: attribution flow, in- and out-of-sample
@@ -185,29 +190,96 @@ river_test <- plot_assignment_alluvial(A_test, model_labels, SIGS_TO_USE) +
 
 p_river <- river_train + river_test + plot_layout(guides = "collect")
 ggsave(file.path(FIG_DIR, "Stability_riverplots.pdf"), p_river,
-       width = 13.7, height = 4.2)
+       width = 11.33, height = 4.66)
+
+# Total fraction of mutations re-assigned at the end of the track
+prop.table(table(A_train[, 1] != A_train[, 12]))
+# ---> 17.8% of mutations get reassigned after the introduction of all covariates
 
 ################################################################################
-# OUTPUT 3: per-patient RMSE of the regional mutation rate
-#
-#    Both models are scored on the SAME held-out megabases. The baseline can
-#    only predict a patient's average rate times the local copy number, so the
-#    gap between the two curves is what the covariates buy.
-################################################################################
-rmse <- do.call(rbind, lapply(seq_along(fits), function(m) {
+# OUTPUT 3: RMSE of the regional mutation rate
+#################################################################################
+grp_in <- region_of_bin[train_bins];  keep_in <- !is.na(grp_in)
+grp_out <- region_of_bin[test_bins];  keep_out <- !is.na(grp_out)
+obs_mb_in <- rowSums(rowsum(obs[train_bins[keep_in], , drop = FALSE], grp_in[keep_in]))
+obs_mb_out <- rowSums(rowsum(obs[test_bins[keep_out], , drop = FALSE], grp_out[keep_out]))
+
+scored <- lapply(seq_along(fits), function(m) {
   message("scoring model ", m - 1L, "/", L)
   lam_in <- predict_lambda_bins(fits[[m]], dataICGC, train_bins)
   rmse_in <- patient_rmse(lam_in, obs, train_bins, region_of_bin)
+  pred_mb_in <- rowSums(rowsum(lam_in[keep_in, , drop = FALSE], grp_in[keep_in]))
   rm(lam_in)
   lam_out <- predict_lambda_bins(fits[[m]], dataICGC, test_bins)
   rmse_out <- patient_rmse(lam_out, obs, test_bins, region_of_bin)
+  pred_mb_out <- rowSums(rowsum(lam_out[keep_out, , drop = FALSE], grp_out[keep_out]))
   rm(lam_out)
-  data.frame(model = m - 1L, patient = names(rmse_in),
-             in_sample = rmse_in, out_sample = rmse_out,
-             row.names = NULL)
-}))
+  list(patient = data.frame(model = m - 1L, patient = names(rmse_in),
+                            in_sample = rmse_in, out_sample = rmse_out,
+                            row.names = NULL),
+       mb = rbind(
+         data.frame(model = m - 1L, split = "In-sample",
+                    region = as.integer(names(obs_mb_in)),
+                    observed = obs_mb_in, predicted = pred_mb_in, row.names = NULL),
+         data.frame(model = m - 1L, split = "Held-out",
+                    region = as.integer(names(obs_mb_out)),
+                    observed = obs_mb_out, predicted = pred_mb_out, row.names = NULL)))
+})
+rmse <- do.call(rbind, lapply(scored, `[[`, "patient"))
+mb <- do.call(rbind, lapply(scored, `[[`, "mb"))
+mb$split <- factor(mb$split, levels = c("In-sample", "Held-out"))
+mb$residual <- mb$observed - mb$predicted
+mb$label <- factor(sprintf("M%d %s", mb$model, model_labels[mb$model + 1L]),
+                   levels = sprintf("M%d %s", seq_along(model_labels) - 1L, model_labels))
 
 write.csv(rmse, file.path(DIR_STABILITY, "patient_rmse.csv"), row.names = FALSE)
+saveRDS(mb, file.path(DIR_STABILITY, "megabase_predictions.rds.gzip"), compress = "gzip")
+
+cohort_summary <- do.call(rbind, lapply(
+  split(mb, list(mb$model, mb$split), drop = TRUE), function(d) {
+    data.frame(model = d$model[1], split = d$split[1],
+               covariate = model_labels[d$model[1] + 1L],
+               n_regions = nrow(d),
+               cohort_rmse = sqrt(mean(d$residual^2)),
+               cohort_cor = cor(d$predicted, d$observed),
+               row.names = NULL)
+  }))
+cohort_summary <- cohort_summary[order(cohort_summary$split, cohort_summary$model), ]
+write.csv(cohort_summary, file.path(DIR_STABILITY, "cohort_regional_summary.csv"),
+          row.names = FALSE)
+print(cohort_summary)
+
+# Make the plot now
+SPLIT_COLS <- c("In-sample" = "#A6CEE3", "Held-out" = "#EB6834")
+
+p_rmse_mb <- ggplot(cohort_summary,
+                    aes(factor(model), cohort_rmse,
+                        colour = split, group = split)) +
+  geom_line(linewidth = 0.5) +
+  geom_point(size = 1.8) +
+  scale_colour_manual(name = NULL, values = SPLIT_COLS) +
+  labs(x = NULL, y = "RMSE per Mb") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        panel.grid.minor = element_blank())
+
+p_box <- ggplot(mb, aes(x = factor(model), y = residual, fill = split)) +
+  geom_hline(yintercept = 0, colour = "grey55", linetype = 2) +
+  geom_boxplot(outlier.size = 0.4, outlier.alpha = 0.4, linewidth = 0.3) +
+  scale_fill_manual(values = SPLIT_COLS) +
+  scale_x_discrete(labels = model_labels) +
+  # The colours are named by the legend of the panel directly above, and the two
+  # share an x axis, so a second legend saying the same thing is noise.
+  guides(fill = "none") +
+  labs(x = NULL, y = "Observed - predicted\nmutations per Mb (cohort)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_mb <- p_rmse_mb / p_box +
+  plot_layout(heights = c(1, 2.2), guides = "collect") &
+  theme(legend.position = "top")
+ggsave(file.path(FIG_DIR, "Stability_megabase_residuals.pdf"), p_mb,
+       width = 4.66, height = 4.66)
 
 p_rmse <- plot_rmse_path(rmse, model_labels)
 ggsave(file.path(FIG_DIR, "Stability_rmse.pdf"), p_rmse, width = 8, height = 5)
@@ -223,10 +295,12 @@ write.csv(rmse_summary, file.path(DIR_STABILITY, "rmse_summary.csv"),
           row.names = FALSE)
 print(rmse_summary)
 
+
 ################################################################################
-# 4. Bundle
+# 4. Save all the objects
 ################################################################################
 saveRDS(list(sel_path = sel_path, rmse = rmse, rmse_summary = rmse_summary,
+             mb = mb, cohort_summary = cohort_summary,
              A_train = A_train, A_test = A_test, model_labels = model_labels),
         file.path(DIR_STABILITY, "stability_outputs.rds.gzip"),
         compress = "gzip")

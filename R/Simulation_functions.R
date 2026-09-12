@@ -1,3 +1,5 @@
+## Produces: no figure. Helper file, sourced by the analysis scripts.
+
 ## Generative core of the simulation study.
 ##
 ## Carried over from the predecessor project essentially unchanged - these

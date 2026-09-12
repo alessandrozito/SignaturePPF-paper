@@ -1,12 +1,8 @@
-## Shared machinery for the three ICGC applications.
-##
-## All of them follow the same shape: find a mode, then sample from it. What
-## differs is how many starting points the mode is searched from, and whether the
-## signatures are estimated or held fixed.
+## Helper file, sourced by the analysis scripts.
 
 #' Log posterior at the end of a MAP run
 #'
-#' The optimiser's objective trace, whose last entry is the value it stopped at.
+#' The optimizer's objective trace, whose last entry is the value it stopped at.
 #' Evaluated every ten iterations rather than every one, so the trace is shorter
 #' than the iteration count - that is a diagnostic subsample, not a thinned chain.
 map_logposterior <- function(fit) {
@@ -17,15 +13,6 @@ map_logposterior <- function(fit) {
 
 
 #' MAP from several random starts, keeping the best
-#'
-#' The de novo posterior is multimodal - signatures can swap, split and merge -
-#' so a single optimisation reports whichever basin its starting point fell into.
-#' Running a few and keeping the highest log posterior is the cheap defence, and
-#' it also makes the spread across starts visible, which is the honest thing to
-#' report: if the three modes are far apart, that is worth knowing.
-#'
-#' Every start is cached separately, so an interrupted search resumes and a
-#' fourth start can be added later without redoing the first three.
 #'
 #' @param data A cohort object.
 #' @param out_dir Where the per-start fits and the summary table are written.
@@ -47,7 +34,12 @@ fit_map_restarts <- function(data, out_dir, n_starts = 3, seed = SEED,
       return(readRDS(file))
     }
     message("\n=== MAP start ", i, " of ", n_starts, " ===")
+    # NOT pruned. This mode is a starting point for a chain that is fitted at the
+    # full `K`, and the package rejects an `R_start` narrower than `K` - so a
+    # pruned mode could not be handed on. It is also what makes the `n_active`
+    # column below a comparison across starts rather than a constant.
     fit <- SignaturePPF::SignaturePPF(data, method = "map", seed = seed + i,
+                                      prune_solution = FALSE,
                                       verbose = verbose, ...)
     saveRDS(fit, file, compress = "gzip")
     fit
@@ -57,7 +49,7 @@ fit_map_restarts <- function(data, out_dir, n_starts = 3, seed = SEED,
   summary_tbl <- data.frame(
     start = seq_len(n_starts),
     logposterior = lp,
-    iterations = vapply(fits, function(f) as.integer(f$MAPsolution$it), integer(1)),
+    iterations = vapply(fits, function(f) as.integer(f$MAPsolution$iter), integer(1)),
     n_active = vapply(fits, function(f) sum(f$Mu > 10 * f$prior$epsilon), integer(1)),
     minutes = vapply(fits, function(f) as.numeric(f$runtime, units = "mins"), numeric(1)))
   summary_tbl$best <- seq_len(n_starts) == which.max(lp)
@@ -91,56 +83,6 @@ init_from_map <- function(fit, sigs_fixed = FALSE) {
 }
 
 
-#' Run the chain from a MAP fit, checkpointing as it goes
-#'
-#' The predecessor did this by hand: run 100 sweeps, `abind` them onto the
-#' chain so far, re-save the whole growing object, repeat. That rewrote the
-#' entire chain to disk every hundred sweeps and could not restore the RNG, so a
-#' resumed run was a different chain that happened to start where the old one
-#' stopped. `SignaturePPF_checkpoint()` writes each block once and restores
-#' `.Random.seed` with it, so an interrupted run resumes bit-exactly.
-#'
-#' @param data A cohort object.
-#' @param map A MAP fit to start from.
-#' @param out_dir Where the chain and its checkpoint directory live.
-#' @param sigs Reference signatures, for a refit. `NULL` for de novo.
-#' @param every Sweeps between checkpoints.
-#' @param ... Passed to [SignaturePPF::SignaturePPF()].
-#' @return The fitted chain.
-run_mcmc_from_map <- function(data, map, out_dir, sigs = NULL,
-                              sigs_fixed = !is.null(sigs), every = 100,
-                              seed = SEED, verbose = TRUE, ...) {
-  out_file <- file.path(out_dir, "MCMCSolution.rds.gzip")
-  if (file.exists(out_file)) {
-    message("using existing chain: ", basename(out_file))
-    return(readRDS(out_file))
-  }
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
-  fit <- SignaturePPF::SignaturePPF(
-    data,
-    sigs = sigs,
-    sigs_fixed = sigs_fixed,
-    method = "mcmc",
-    init = init_from_map(map, sigs_fixed = sigs_fixed),
-    # The mode has already been found and paid for; re-running the optimiser
-    # inside the MCMC call would just find it again.
-    init_mcmc_from_map = FALSE,
-    # Signatures the compressive prior has parked near epsilon are KEPT. Pruning
-    # them would fix the model's dimension at the mode's answer, and whether a
-    # marginal signature survives is one of the things the posterior is being
-    # asked about.
-    prune_after_map = FALSE,
-    checkpoint = SignaturePPF::SignaturePPF_checkpoint(
-      dir = file.path(out_dir, "checkpoint"), every = every, resume = TRUE),
-    seed = seed,
-    verbose = verbose,
-    ...)
-
-  saveRDS(fit, out_file, compress = "gzip")
-  fit
-}
-
 
 #' Posterior summaries of a chain, in the shape the figures expect
 #'
@@ -161,20 +103,20 @@ posterior_summaries <- function(fit, level = 0.95) {
 
 #' Trace of the log posterior, with the burn-in marked
 #'
-#' The chain is indexed by STORED DRAW, so the sweep a draw corresponds to is its
-#' index times `thin` - and the burn-in is specified in sweeps. Plotting against
+#' The chain is indexed by STORED DRAW, so the iteration a draw corresponds to is its
+#' index times `thin` - and the burn-in is specified in iterations. Plotting against
 #' the raw index would put the burn-in line in the wrong place by that factor.
 #' `logpost_every` does not enter: it leaves NA in the entries where the
 #' objective was not evaluated, and those are simply dropped.
 plot_logposterior_trace <- function(fit) {
   lp <- fit$MCMCchain$logPostchain
   keep <- is.finite(lp)
-  df <- data.frame(sweep = which(keep) * fit$controls$thin, logpost = lp[keep])
+  df <- data.frame(iteration = which(keep) * fit$controls$thin, logpost = lp[keep])
 
-  ggplot2::ggplot(df, ggplot2::aes(.data$sweep, .data$logpost)) +
+  ggplot2::ggplot(df, ggplot2::aes(.data$iteration, .data$logpost)) +
     ggplot2::geom_vline(xintercept = fit$controls$burnin, linetype = 2,
                         colour = "#CD2626") +
     ggplot2::geom_line(linewidth = 0.3) +
-    ggplot2::labs(x = "Sweep", y = "Log posterior") +
+    ggplot2::labs(x = "Iteration", y = "Log posterior") +
     ggplot2::theme_bw()
 }

@@ -1,3 +1,5 @@
+## Produces: no figure. Helper file, sourced by the analysis scripts.
+
 ## The main simulation study (Section 4): data generation, fitting and scoring.
 ##
 ## Companion to Simulation_functions.R, which holds the generative core shared
@@ -244,27 +246,6 @@ get_counts_from_data <- function(data) {
 }
 
 
-#' Which stored draws survive the burn-in
-#'
-#' The chain is indexed by stored draw and `burnin` is in sweeps, so the cut is
-#' at `index * thin > burnin`. Dropping the first `burnin` ROWS would discard the
-#' wrong draws whenever `thin > 1`.
-kept_draw_index <- function(fit) {
-  n <- dim(fit$MCMCchain$MUchain)[1]
-  which(seq_len(n) * fit$controls$thin > fit$controls$burnin)
-}
-
-
-#' Effective sample size of a chain block, post burn-in
-get_PosteriorEffectiveSize <- function(chain, keep) {
-  if (is.null(dim(chain))) {
-    coda::effectiveSize(chain[keep])
-  } else if (length(dim(chain)) == 2) {
-    apply(chain[keep, , drop = FALSE], 2, coda::effectiveSize)
-  } else {
-    apply(chain[keep, , , drop = FALSE], c(2, 3), coda::effectiveSize)
-  }
-}
 
 
 #' A common estimate structure for any of the fitted models
@@ -315,7 +296,7 @@ getModelEstimates <- function(res, model = "SignaturePPF", SignalTrack, CopyTrac
 #' Every metric for one fit
 #'
 #' RMSE of the signatures, activities, coefficients, intensity and counts, plus
-#' either the optimiser's iteration count or the chain's effective sample sizes.
+#' either the optimizer's iteration count or the chain's effective sample sizes.
 compute_RMSE_paramters <- function(res, data, Lambda_true, Theta_total_true,
                                    R_hat, theta_baseline, Theta_total,
                                    Beta_hat, Lambda_hat, counts_true = NULL) {
@@ -329,34 +310,9 @@ compute_RMSE_paramters <- function(res, data, Lambda_true, Theta_total_true,
   if (is.null(counts_true)) counts_true <- get_counts_from_data(data)
   rmse_counts <- sqrt(mean(rowMeans(Lambda_hat - counts_true)^2))
 
-  blank <- c(iter = NA_real_, effectiveBetas = NA_real_, effectiveSigs = NA_real_,
-             effectiveTheta = NA_real_, effectiveMu = NA_real_,
-             effectiveSigma2 = NA_real_, effectiveLogPost = NA_real_,
-             effectiveLogLik = NA_real_, effectiveLogPrior = NA_real_)
-
-  if (is.null(res$MCMCchain)) {
-    # MAP, or one of the NMF competitors, which report neither.
-    sampling_details <- blank
-    sampling_details["iter"] <- if (!is.null(res$MAPsolution$it))
-      as.numeric(res$MAPsolution$it) else NA_real_
-  } else {
-    keep_draws <- kept_draw_index(res)
-    keep <- colnames(R_hat)
-    ess <- function(x) mean(get_PosteriorEffectiveSize(x, keep_draws))
-    sampling_details <- c(
-      iter = NA_real_,
-      effectiveBetas = ess(res$MCMCchain$BETASchain[, , keep, drop = FALSE]),
-      effectiveSigs = ess(res$MCMCchain$SIGSchain[, , keep, drop = FALSE]),
-      effectiveTheta = ess(res$MCMCchain$THETAchain[, keep, , drop = FALSE]),
-      effectiveMu = ess(res$MCMCchain$MUchain[, keep, drop = FALSE]),
-      effectiveSigma2 = ess(res$MCMCchain$SIGMA2chain[, keep, drop = FALSE]),
-      effectiveLogPost = unname(get_PosteriorEffectiveSize(
-        c(res$MCMCchain$logPostchain)[keep_draws], seq_along(keep_draws))),
-      effectiveLogLik = unname(get_PosteriorEffectiveSize(
-        c(res$MCMCchain$logLikchain)[keep_draws], seq_along(keep_draws))),
-      effectiveLogPrior = unname(get_PosteriorEffectiveSize(
-        c(res$MCMCchain$logPriorchain)[keep_draws], seq_along(keep_draws))))
-  }
+  # Shared with the misspecification study, so the two tables are computed by
+  # exactly the same code. Lives in Simulation_functions_misspec.R.
+  sampling_details <- sampling_details_of(res, keep = colnames(R_hat))
 
   c("Kest" = ncol(R_hat), Sens_prec,
     "rmse_sig" = rmse_sigs, "rmse_theta" = rmse_theta,

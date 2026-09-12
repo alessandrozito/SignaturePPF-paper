@@ -1,11 +1,7 @@
 ################################################################################
-# Build the ICGC Breast-AdenoCa cohort object from the raw tracks
+# Produces: no figure. Builds data/preprocessed/ICGC_BreastAdenoCA_avg*.rds.gzip
 #
-# Bins the genome, computes the usable sequence per bin (assembly gaps and the
-# ENCODE blacklist removed), averages the eleven covariate tracks onto those
-# bins, standardises them, attaches each mutation's covariate values, and
-# multiplies copy number by usable sequence to give the exposure the Poisson
-# process integrates over.
+# Build the ICGC Breast-AdenoCa cohort object from the raw tracks
 #
 # Usage:  Rscript R/Preprocess_ICGC_BreastAdenoCA.R [tilewidth]
 #
@@ -13,15 +9,6 @@
 #              refit applications run at. 10000 rebuilds the coarser grid the
 #              replication and stability analyses use.
 #
-# The output is skipped if it already exists, so this is safe to re-run. At
-# 2 kb it takes roughly ten minutes and needs about 8 GB.
-#
-# NOTE on the 10 kb file. The copy already in data/ was built by the predecessor
-# project, BEFORE the merge_with_tumor() fix documented in Preprocess_functions.R,
-# so rebuilding it here will not reproduce it byte for byte: mutations in
-# assembly gaps were previously kept and given an all-zero covariate row, which
-# after standardisation reads as an average bin. Rebuilding drops them instead.
-# The existing file is left alone unless it is deleted first.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -62,10 +49,16 @@ data <- build_icgc_dataset(tilewidth = TILEWIDTH, verbose = TRUE)
 
 # The alignment contract the model depends on, checked before anything is saved.
 v <- SignaturePPF_validate(data)
-message(sprintf("\n%s mutations | %d samples | %d covariates | %s bins",
-                format(v$N, big.mark = ","), v$J, v$p,
-                format(v$nbins, big.mark = ",")))
-message("covariates: ", paste(colnames(v$SignalTrack), collapse = ", "))
+summary_line <- sprintf("\n%s mutations | %d samples | %d covariates | %s bins",
+                        format(v$N, big.mark = ","), v$J, v$p,
+                        format(v$nbins, big.mark = ","))
+covariate_line <- paste(colnames(v$SignalTrack), collapse = ", ")
+## v is a processed copy - at 2 kb its reordered CopyTrack alone is 1.2 GB. The
+## contract is checked, the numbers are out of it, so let it go before the save.
+rm(v); invisible(gc())
+
+message(summary_line)
+message("covariates: ", covariate_line)
 
 saveRDS(data, OUT_FILE, compress = "gzip")
 message(sprintf("\nwrote %s (%.0f MB) in %s", basename(OUT_FILE),

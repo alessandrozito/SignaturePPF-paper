@@ -1,4 +1,6 @@
 ################################################################################
+# Produces: Figure S11
+#
 # Comparison against TensorSignatures (Vohringer et al., Nat Commun 2021),
 #
 # Usage:  Rscript R/Comparison_TensorSignatures.R [rank]
@@ -22,24 +24,6 @@
 # miniconda distribution under $HOME. It stops with that command if the environment is
 # missing.
 #
-# -----------------------------------------------
-# Both extend 96-channel NMF with genomic covariates, but parameterise the
-# genomic dependence differently - continuous log-linear against discrete
-# per-state amplitudes - and only TensorSignatures models strand asymmetry, only
-# PPF models copy number. We make the comparison using the ChromHMM 15-state
-# annotation of breast epithelium. The bins ARE the ChromHMM segments, so the
-# state assignment is exact for both methods, and PPF is given the states as
-# one-hot covariates with `Quies` dropped as reference - which makes each beta
-# the log enrichment relative to Quies, the same quantity TensorSignatures
-# reports as a state amplitude.
-#
-# Two comparisons:
-#
-#   SPECTRA  do the two methods find the same signatures? Matched one-to-one by
-#            cosine similarity, using the hungarian algorithm
-#   EFFECTS  do they agree on the chromatin-state effect of each matched
-#            signature? Both are log enrichments against the same reference
-#            state, so they compare directly with no rescaling.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -69,6 +53,7 @@ PATH_PPF_FIT <- file.path(DIR_TENSORSIG, "fit_ppf_chromatin.rds.gzip")
 
 args <- commandArgs(trailingOnly = TRUE)
 rank_requested <- if (length(args)) as.integer(args[1]) else NA_integer_
+
 
 ################################################################################
 # 1. The chromatin-state dataset
@@ -104,6 +89,11 @@ message("bins: ", nrow(dataChrom$SignalTrack),
         " | samples: ", ncol(dataChrom$CopyTrack),
         " | mutations: ", length(dataChrom$gr_Mutations))
 
+
+# Count numbers of mutation by chromatin state
+table(dataChrom$state_of_bin[dataChrom$bin_of_mut])
+prop.table(table(dataChrom$state_of_bin[dataChrom$bin_of_mut]))
+
 ################################################################################
 # 2. Fit SignaturePPF
 ################################################################################
@@ -112,14 +102,24 @@ if (file.exists(PATH_PPF_FIT)) {
   message("cached: ", basename(PATH_PPF_FIT))
   fit <- readRDS(PATH_PPF_FIT)
 } else {
+  # NOT pruned here. This script prunes explicitly at MU_MIN further down, and
+  # relabel_by_mu() runs on whatever comes back - so letting the package prune at
+  # its own looser threshold would make the LABELS depend on whether the fit came
+  # off disk or out of the optimizer.
   fit <- SignaturePPF(dataChrom,
                       K = K_PPF,
                       method = "map",
+                      prune_solution = FALSE,
                       controls = SignaturePPF_control(maxiter = 4000, tol = 1e-6),
                       seed = SEED,
                       verbose = TRUE)
   saveRDS(fit, PATH_PPF_FIT, compress = "gzip")
 }
+
+# Relabel the signatures based on relevance weights
+fit <- relabel_by_mu(fit)
+print(attr(fit, "relabel"))
+
 print(fit)
 plot(fit)
 
@@ -130,9 +130,8 @@ write.csv(ref_match, file.path(DIR_TENSORSIG, "ppf_signature_cosmic_match.csv"),
           row.names = FALSE)
 print(ref_match)
 
-ggsave(file.path(FIG_DIR, "TensorSignatures_PPF_chromatin_betas.pdf"),
-       plot_chromatin_betas(fit, reference = REFERENCE_STATE),
-       width = 11, height = 8)
+plot_Signatures(fit$Signatures[, -c(11:12)]) +  plot_Betas(x = fit$Betas[, -c(11:12)])
+
 
 ################################################################################
 # 3. Export the same data as a TensorSignatures tensor
@@ -182,8 +181,6 @@ message("using rank ", rank,
 TS_DIR <- file.path(TS_BASE, sprintf("rank%02d", rank))
 if (!dir.exists(TS_DIR)) stop("no fit at ", TS_DIR)
 
-# Both criteria, so the choice is visible rather than asserted; the selected
-# rank is marked on the panel it was chosen from.
 sweep_long <- rbind(
   data.frame(rank = sweep$rank, criterion = "AIC", value = sweep$AIC),
   data.frame(rank = sweep$rank, criterion = "BIC", value = sweep$BIC))
@@ -205,11 +202,17 @@ p_sweep
 ################################################################################
 message("\n== 6. spectra ==")
 ts <- read_ts_fit(TS_DIR)
-match_tbl <- hungarian_match_signatures(ts$signatures, fit$Signatures)
+
+matched   <- match_and_relabel_ts(ts, fit, mu_min = MU_MIN)
+ts        <- matched$ts
+match_tbl <- matched$match
 message("matched ", nrow(match_tbl), " pair(s) | unmatched TS: ",
         paste(attr(match_tbl, "unmatched_ts"), collapse = ", "),
         " | unmatched PPF: ",
         paste(attr(match_tbl, "unmatched_ppf"), collapse = ", "))
+write.csv(match_tbl, file.path(DIR_TENSORSIG, "signature_matching.csv"),
+          row.names = FALSE)
+print(match_tbl)
 
 # Each method against COSMIC, the neutral reference for "did it find a known
 # signature".
@@ -220,20 +223,48 @@ cosmic_cmp <- rbind(
 ################################################################################
 # 7. Compare: chromatin-state effects
 ################################################################################
+
 message("\n== 7. chromatin-state effects ==")
-cmp <- compare_chromatin_effects(fit, TS_DIR, reference = REFERENCE_STATE,
-                                 mu_min = MU_MIN)
+
+# Drop the signatures the compressive prior switched off. Same threshold the
+# matching above used, so the panels and the matching describe the same set.
+fit_filter <- prune_signatures(fit, threshold = MU_MIN)
+
+# Plot Signatures side by side, and beta coefficients for PPF
+p_sig_ts <- (plot_Signatures(matched$ts$signatures) +
+               theme(axis.text.x = element_blank()))
+p_sig_PPF <- plot_Signatures(fit_filter$Signatures) +
+  theme(axis.text.x = element_blank())
+p_betas_PPF <- plot_Betas(x = fit_filter$Betas) +
+  theme(plot.margin = margin(r = 20, unit = "pt"))
+
+# Filter fit object for plots
+p_mu <- plot_Mu(fit_filter, dataChrom) + theme(legend.position = "right")
+
+ggsave(file.path(FIG_DIR, "TensorSignatures_top_panel_mu.pdf"),
+       p_mu,
+       width = 3.23, height = 4.33)
+
+
+# Display and save the three plots displayed
+p_all_plots <- p_sig_ts + p_sig_PPF + p_betas_PPF + plot_layout(widths = c(1,1,2))
+p_all_plots
+ggsave(file.path(FIG_DIR, "TensorSignatures_top_panel.pdf"),
+       p_all_plots,
+       width = 10.82, height = 5.84)
+
+# Match to COSMIC
+match_to_cosmic(fit_filter$Signatures)
+cosine(fit_filter$Signatures, SignaturePPF::COSMIC_v3.4_SBS96_GRCh37[, c("SBS36", "SBS18")])
+
+# Plot betas vs TS amplitudes
+cmp <- compare_chromatin_effects(fit, ts, match_tbl, reference = REFERENCE_STATE)
 write.csv(cmp, file.path(DIR_TENSORSIG, "chromatin_effect_comparison.csv"),
           row.names = FALSE)
 
-# The same points cut two ways, side by side: one panel per signature (does the
-# pair agree on where this process sits along the genome?) and one panel per
-# chromatin state (do the methods agree on what this piece of chromatin does?).
 p_by_signature <- plot_chromatin_effects(cmp, by = "signature", ncol = 5)
-p_by_state <- plot_chromatin_effects(cmp, by = "state", ncol = 5)
-
 ggsave(file.path(FIG_DIR, "TensorSignatures_chromatin_effects.pdf"),
-       p_by_signature + p_by_state, width = 22, height = 9)
+       p_by_signature, width = 10.82, height = 3.65)
 
 effect_agreement <- data.frame(
   n_pairs = length(unique(cmp$pair_label)),
@@ -242,24 +273,5 @@ effect_agreement <- data.frame(
   spearman = cor(cmp$beta, cmp$ts_logratio, method = "spearman"),
   sign_agreement = mean(sign(cmp$beta) == sign(cmp$ts_logratio)))
 print(effect_agreement)
-
-################################################################################
-# 8. Compare: regional mutation rate
-#
-#    The comparison that separates the two models. Aggregated into 1 Mb windows,
-#    how close is each method's predicted burden to the observed one?
-################################################################################
-message("\n== 8. regional mutation rate ==")
-rate <- compare_mutation_rate(dataChrom, fit, TS_DIR, window = 1e6)
-write.csv(rate, file.path(DIR_TENSORSIG, "mutation_rate_windows.csv"),
-          row.names = FALSE)
-
-scores <- score_mutation_rate(rate)
-write.csv(scores, file.path(DIR_TENSORSIG, "mutation_rate_scores.csv"),
-          row.names = FALSE)
-print(scores)
-
-ggsave(file.path(FIG_DIR, "TensorSignatures_mutation_rate_along_genome.pdf"),
-       plot_mutation_rate(rate), width = 12, height = 4)
 
 message("\ndone: tables in ", DIR_TENSORSIG, "\n      figures in ", FIG_DIR)

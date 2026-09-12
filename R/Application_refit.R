@@ -1,4 +1,7 @@
 ################################################################################
+# Produces: no figure. Fits the fixed-signature model, which
+#           Figures 4 and S6 are drawn from
+#
 # Refit application: ICGC Breast-AdenoCa at 2 kb, signatures held fixed
 #
 # The fifteen COSMIC signatures with support in breast cohorts are held at their
@@ -7,11 +10,7 @@
 #
 #   MAP     one run - with the signatures fixed the objective is far better
 #           behaved than the de novo one, so multiple starts buy nothing
-#   MCMC    10000 sweeps, 5000 burn-in, started at the MAP
-#
-# The compressive prior still applies, so a catalogue signature the cohort does
-# not support is parked near epsilon. Those are NOT pruned before sampling:
-# which of the fifteen the data actually supports is a result, not a setting.
+#   MCMC    10000 iterations, 5000 burn-in, started at the MAP
 #
 # Usage:  Rscript R/Application_refit.R
 #
@@ -43,10 +42,10 @@ LOGPOST_EVERY <- 10
 # 1. Data and the reference catalogue
 ################################################################################
 data <- readRDS(PATH_ICGC2KB)
-v <- SignaturePPF_validate(data)
 message(sprintf("%s mutations | %d samples | %d covariates | %s bins",
-                format(v$N, big.mark = ","), v$J, v$p,
-                format(v$nbins, big.mark = ",")))
+                format(length(data$gr_Mutations), big.mark = ","),
+                ncol(data$CopyTrack), ncol(data$SignalTrack),
+                format(nrow(data$SignalTrack), big.mark = ",")))
 
 CosmicSigs <- COSMIC_v3.4_SBS96_GRCh37[, SIGS_TO_USE]
 message("refitting ", ncol(CosmicSigs), " fixed signatures: ",
@@ -63,7 +62,10 @@ if (file.exists(map_file)) {
   message("using existing MAP: ", basename(map_file))
   map <- readRDS(map_file)
 } else {
+  # NOT pruned: this mode is the chain's starting point and has to stay at the
+  # full K (the package rejects a narrower R_start).
   map <- SignaturePPF(data,
+                      prune_solution = FALSE,
                       sigs = CosmicSigs, sigs_fixed = TRUE,
                       method = "map",
                       prior = prior,
@@ -74,16 +76,44 @@ if (file.exists(map_file)) {
 print(map)
 
 ################################################################################
-# 3. MCMC from the MAP
+# 3. MCMC, started from the MAP above. Single starting point
 ################################################################################
 message("\n== MCMC ==")
-fit <- run_mcmc_from_map(
-  data, map, out_dir = DIR_REFIT,
-  sigs = CosmicSigs, sigs_fixed = TRUE,
-  prior = prior,
-  controls = SignaturePPF_control(nsamples = NSAMPLES, burnin = BURNIN,
-                                  logpost_every = LOGPOST_EVERY),
-  every = 100, seed = SEED)
+message(sprintf("starting the chain from the MAP, log posterior %s",
+                format(map_logposterior(map), big.mark = ",", nsmall = 2)))
+
+mcmc_file <- file.path(DIR_REFIT, "MCMCSolution.rds.gzip")
+
+if (file.exists(mcmc_file)) {
+  message("using the existing chain: ", basename(mcmc_file))
+  fit <- readRDS(mcmc_file)
+} else {
+  # NOT pruned either: Figure 5a shows which of the fixed references the cohort
+  # does NOT support, so the parked ones have to survive into the solution.
+  fit <- SignaturePPF(
+    prune_solution = FALSE,
+    data,
+    sigs       = CosmicSigs,      # the catalogue, held fixed
+    sigs_fixed = TRUE,
+    method     = "mcmc",
+    prior      = prior,
+    controls   = SignaturePPF_control(nsamples = NSAMPLES, burnin = BURNIN,
+                                      sampler = "agess",
+                                      logpost_every = LOGPOST_EVERY),
+    # Initial starting point
+    init = SignaturePPF_init(Theta_start  = map$Thetas,
+                             Betas_start  = map$Betas,
+                             Mu_start     = map$Mu,
+                             Sigma2_start = map$Sigma2),
+    init_mcmc_from_map = FALSE,
+    prune_after_map = FALSE,
+    checkpoint = SignaturePPF_checkpoint(dir = file.path(DIR_REFIT, "tmpMCMC"),
+                                         every = 100, resume = TRUE),
+    seed    = SEED,
+    verbose = TRUE)
+
+  saveRDS(fit, mcmc_file, compress = "gzip")
+}
 
 print(fit)
 

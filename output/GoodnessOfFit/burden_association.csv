@@ -1,0 +1,7 @@
+"quantity","burden_invariant","spearman","p_value"
+"excess rate error (cv)",TRUE,-0.221688530692247,0.0182837034932351
+"-log10 equal-power p",TRUE,-0.235407868554364,0.0120739403888265
+"misfit in worst 0.1% of regions",TRUE,0.0379475471330149,0.689858857405094
+"share of mutations in flagged regions",TRUE,-0.188165771520825,0.0459496598996785
+"dispersion ratio D",FALSE,0.469659636494704,0.000000153873348924289
+"KS distance / null",FALSE,0.299463328114893,0.00127198399810585

@@ -1,4 +1,6 @@
 ################################################################################
+# Produces: Figure S1
+#
 # Main simulation study (Section 4)
 #
 # Two scenarios differing only in the covariate correlation:
@@ -21,17 +23,9 @@
 #   M6  MCMC, all x, D=500 M4 with covariates averaged over 5 consecutive bins
 #   M7  SignatureAnalyzer  BayesNMF, no covariates, no copy number
 #
-# M7 is appended rather than slotted in beside M1 on purpose: M0-M6 are already
-# cross-referenced in the manuscript, and renumbering them here would silently
-# break those references. Move it in MODEL_LABELS if you would rather it sat
-# next to CompNMF, and renumber the LaTeX to match.
-#
 # Figures:
 #   Simualations_results.pdf             the four headline models, labelled (i)-(v)
 #   Simualations_results_Supplement2.pdf all eight, labelled M0-M7
-#
-# (The "Simualations" spelling is the manuscript's existing filename, kept so
-# the LaTeX does not have to change.)
 #
 # Usage:  Rscript R/Simulation_main.R [stage] [cores]
 #
@@ -153,7 +147,12 @@ fit_all_models <- function(out_dir, seed) {
   todo <- function(f) !file.exists(file.path(out_dir, f))
   put <- function(x, f) saveRDS(x, file.path(out_dir, f), compress = "gzip")
 
+  # `prune_solution = FALSE`: the simulation applies its OWN selection rule
+  # (Mu above 5 * cutoff AND the spectrum not flat), which is stricter and not
+  # the same rule, so the package must hand over every signature it was given
+  # and let the scoring decide.
   ppf <- function(dat, ...) SignaturePPF(dat, K = K_FIT, prior = prior,
+                                         prune_solution = FALSE,
                                          seed = seed, verbose = FALSE, ...)
 
   # --- M0: MAP with only the covariates that generated the data ---------------

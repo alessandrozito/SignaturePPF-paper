@@ -18,6 +18,14 @@ PAPER_ROOT <- Sys.getenv("SIGNATUREPPF_PAPER",
 DATA_DIR   <- Sys.getenv("SIGNATUREPPF_DATA",
                          unset = file.path(PAPER_ROOT, "data"))
 
+## Shipped inputs, except preprocessed/, which the Preprocess_* scripts write.
+DIR_DATA_APP      <- file.path(DATA_DIR, "data_for_application")
+DIR_DATA_BREAST80 <- file.path(DATA_DIR, "data_for_breast80")
+DIR_DATA_FIGURE1  <- file.path(DATA_DIR, "data_for_figure1")
+DIR_DATA_CLINICAL <- file.path(DATA_DIR, "pcawg_clinical")
+DIR_DATA_PREP     <- file.path(DATA_DIR, "preprocessed")
+dir.create(DIR_DATA_PREP, recursive = TRUE, showWarnings = FALSE)
+
 OUTPUT_DIR <- file.path(PAPER_ROOT, "output")
 FIG_DIR    <- file.path(PAPER_ROOT, "figures")
 R_DIR      <- file.path(PAPER_ROOT, "R")
@@ -28,38 +36,38 @@ for (d in c(OUTPUT_DIR, FIG_DIR)) dir.create(d, recursive = TRUE, showWarnings =
 ## Preprocessed cohort objects: lists of gr_Mutations / SignalTrack / CopyTrack.
 ## Both are on the SAME 10 kb bin grid and carry the SAME 11 covariates, which is
 ## what makes the replication comparison meaningful.
-PATH_BREAST80 <- file.path(DATA_DIR, "Breast80_data.rds.gzip")
-PATH_ICGC10KB <- file.path(DATA_DIR,
+PATH_BREAST80 <- file.path(DIR_DATA_PREP, "Breast80_data.rds.gzip")
+PATH_ICGC10KB <- file.path(DIR_DATA_PREP,
                            "ICGC_BreastAdenoCA_avg10kb_Mutations_Covariates_Copies.rds.gzip")
 
 ## Raw inputs for the chromatin-state comparison.
 ## E028 is the Roadmap ChromHMM segmentation of breast epithelium.
-PATH_CHROMHMM  <- file.path(DATA_DIR, "E028_15_coreMarks_dense.bed")
-PATH_BLACKLIST <- file.path(DATA_DIR, "hg19-blacklist.v2.bed")
-PATH_GAPS      <- file.path(DATA_DIR, "gaps_hg19.bed")
-PATH_ICGC_SNV  <- file.path(DATA_DIR, "Breast-AdenoCa_snp.rds.gzip")
-PATH_ICGC_CN   <- file.path(DATA_DIR, "20170119_final_consensus_copynumber_donor")
+PATH_CHROMHMM  <- file.path(DIR_DATA_APP, "E028_15_coreMarks_dense.bed")
+PATH_BLACKLIST <- file.path(DIR_DATA_APP, "hg19-blacklist.v2.bed")
+PATH_GAPS      <- file.path(DIR_DATA_APP, "gaps_hg19.bed")
+PATH_ICGC_SNV  <- file.path(DIR_DATA_APP, "Breast-AdenoCa_snp.rds.gzip")
+PATH_ICGC_CN   <- file.path(DIR_DATA_APP, "20170119_final_consensus_copynumber_donor")
 
 ## ------------------------------------------------------- covariate bigWigs
 ## The eleven genomic covariates, as the tracks they are built from. The seven
 ## histone/CTCF marks come in a tissue and a cell-line version and are averaged;
 ## the other four have a single source each.
-PATH_GC        <- file.path(DATA_DIR, "gc_content_1kb.bigWig")
-PATH_METHYL    <- file.path(DATA_DIR, "Breast-Cancer_Methylation.bigWig")
-PATH_REPLITIME <- file.path(DATA_DIR, "wgEncodeUwRepliSeqMcf7WaveSignalRep1.bigWig")
-PATH_NUCLEOSOME <- file.path(DATA_DIR,
+PATH_GC        <- file.path(DIR_DATA_APP, "gc_content_1kb.bigWig")
+PATH_METHYL    <- file.path(DIR_DATA_APP, "Breast-Cancer_Methylation.bigWig")
+PATH_REPLITIME <- file.path(DIR_DATA_APP, "wgEncodeUwRepliSeqMcf7WaveSignalRep1.bigWig")
+PATH_NUCLEOSOME <- file.path(DIR_DATA_APP,
                              "GSM920557_hg19_wgEncodeSydhNsomeK562Sig_1kb.bigWig")
 
 CHROMATIN_MARKS <- c("CTCF", "H3K9me3", "H3K36me3", "H3K27me3", "H3K27ac",
                      "H3K4me1", "H3K4me3")
 path_mark <- function(mark, source = c("tissue", "cell")) {
   source <- match.arg(source)
-  file.path(DATA_DIR, sprintf("Breast-Cancer_%s_%s_2kb.bigWig", source, mark))
+  file.path(DIR_DATA_APP, sprintf("Breast-Cancer_%s_%s_2kb.bigWig", source, mark))
 }
 
 ## The preprocessed cohort at the 2 kb resolution the applications run at, built
 ## by R/Preprocess_ICGC_BreastAdenoCA.R from everything above.
-PATH_ICGC2KB <- file.path(DATA_DIR,
+PATH_ICGC2KB <- file.path(DIR_DATA_PREP,
                           "ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip")
 
 ## The covariate tracks and the two masks - shared by both cohorts.
@@ -74,9 +82,34 @@ PATHS_PREPROCESS <- c(PATH_ICGC_SNV, PATH_ICGC_CN, PATHS_TRACKS)
 ## ------------------------------------------------ the 80-cancer cohort, raw
 ## Davies et al. (2017): per-sample CaVEMan calls and ASCAT copy-number
 ## segments, one file each per tumour.
-PATH_BREAST80_SNV <- file.path(DATA_DIR, "SNP80Breast")
-PATH_BREAST80_CN  <- file.path(DATA_DIR, "copyNumber80Breast")
+PATH_BREAST80_SNV <- file.path(DIR_DATA_BREAST80, "SNP80Breast")
+PATH_BREAST80_CN  <- file.path(DIR_DATA_BREAST80, "copyNumber80Breast")
+
+## The release ships the substitutions as one combined table rather than as
+## VCFs; R/Split_Breast80_vcfs.R turns it into the per-sample files above. Only
+## that script needs this, and only when SNP80Breast/ is being rebuilt.
+PATH_BREAST80_CAVEMAN <- file.path(DIR_DATA_BREAST80, "Caveman_80sample_Yclean_1Dec15.txt")
 PATHS_PREPROCESS_BREAST80 <- c(PATH_BREAST80_SNV, PATH_BREAST80_CN, PATHS_TRACKS)
+
+## ------------------------------------------------- PCAWG clinical annotation
+## Donor-level clinical data for the ICGC cohort. OPEN access - none of this is
+## controlled, unlike the sequence data - and served from the object store the
+## ICGC Data Portal was replaced by when it was retired in 2024. Downloaded by
+## R/Load_PCAWG_clinical.R, which caches into data/.
+PCAWG_BUCKET <- "https://object.genomeinformatics.org/icgc25k-open"
+PATH_PCAWG_CLINICAL    <- file.path(DIR_DATA_CLINICAL, "pcawg_donor_clinical_August2016_v9.xlsx")
+PATH_PCAWG_HISTOLOGY   <- file.path(DIR_DATA_CLINICAL, "pcawg_specimen_histology_August2016_v9.xlsx")
+PATH_PCAWG_SAMPLESHEET <- file.path(DIR_DATA_CLINICAL, "pcawg_sample_sheet.tsv")
+PATH_PCAWG_SUBTYPES    <- file.path(DIR_DATA_CLINICAL, "pcawg_donor_subtype_cohort_list.xlsx")
+
+## Where each lives inside the bucket, so the loader has one table to walk.
+PCAWG_REMOTE <- c(
+  "PCAWG/clinical_and_histology/pcawg_donor_clinical_August2016_v9.xlsx",
+  "PCAWG/clinical_and_histology/pcawg_specimen_histology_August2016_v9.xlsx",
+  "PCAWG/donors_and_biospecimens/pcawg_sample_sheet.tsv",
+  "PCAWG/clinical_and_histology/pcawg_donor_subtype_cohort_list.xlsx")
+names(PCAWG_REMOTE) <- c(PATH_PCAWG_CLINICAL, PATH_PCAWG_HISTOLOGY,
+                         PATH_PCAWG_SAMPLESHEET, PATH_PCAWG_SUBTYPES)
 
 ## Fail early and by name, rather than three steps into a pipeline.
 check_inputs <- function(paths = c(PATH_BREAST80, PATH_ICGC10KB, PATH_CHROMHMM,
@@ -99,11 +132,17 @@ DIR_SIM_MAIN    <- file.path(OUTPUT_DIR, "Simulation_main")
 DIR_DENOVO      <- file.path(OUTPUT_DIR, "Application_denovo")
 DIR_REFIT       <- file.path(OUTPUT_DIR, "Application_refit")
 DIR_SENSITIVITY <- file.path(OUTPUT_DIR, "Application_denovo_sensitivity")
+DIR_CLINICAL    <- file.path(OUTPUT_DIR, "PCAWG_clinical")
+DIR_GOF         <- file.path(OUTPUT_DIR, "GoodnessOfFit")
 for (d in c(DIR_REPLICATION, DIR_TENSORSIG, DIR_STABILITY, DIR_SIM_MISSPEC,
             DIR_SIM_MAIN,
-            DIR_DENOVO, DIR_REFIT, DIR_SENSITIVITY)) {
+            DIR_DENOVO, DIR_REFIT, DIR_SENSITIVITY, DIR_CLINICAL, DIR_GOF)) {
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
+
+## The donor-level clinical table for the ICGC cohort, built by
+## R/Load_PCAWG_clinical.R. Read it with load_clinical().
+PATH_CLINICAL <- file.path(DIR_CLINICAL, "clinical_BreastAdenoCA.csv")
 
 ## The 96 hg19 trinucleotide opportunities, computed once by the simulation
 ## study and cached. A derived quantity, so it lives in output/ rather than
@@ -155,7 +194,8 @@ FUNCTION_FILES <- c("Utils_functions.R",
                     "Plot_functions.R",
                     "Preprocess_functions.R",
                     "Application_functions.R",
-                    "TensorSignatures_functions.R")
+                    "TensorSignatures_functions.R",
+                    "GoodnessOfFit_functions.R")
 
 load_functions <- function() {
   for (f in FUNCTION_FILES) source(file.path(R_DIR, f))

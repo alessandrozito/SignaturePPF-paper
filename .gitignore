@@ -5,12 +5,86 @@
 .Rproj.user/
 Rplots.pdf
 
-# Data and results are not tracked: raw cohort data is access-controlled and
-# derived output is large. Both are reproducible from the scripts.
+# Inputs: the assembled data folders ARE tracked, so the analyses run from a
+# clone. What is built here by the Preprocess_* scripts is not.
 data/*
 !data/README.md
+!data/MANIFEST.tsv
+!data/data_for_application/
+!data/data_for_application/**
+!data/data_for_breast80/
+!data/data_for_breast80/**
+!data/data_for_figure1/
+!data/data_for_figure1/**
+!data/pcawg_clinical/
+!data/pcawg_clinical/**
+data/preprocessed/
+
+# Results: the fits and scored tables the figures are drawn from are tracked;
+# the raw MCMC draws and per-replicate simulation output are not.
 output/*
 !output/README.md
+
+# de novo application: the MAP, the posterior summary and the baselines.
+# The 191 MB chain itself is excluded - it is over GitHub's per-file limit, so
+# the two ESS figures (S5, S6) are the one thing a clone cannot redraw.
+!output/Application_denovo/
+!output/Application_denovo/*
+output/Application_denovo/MCMCSolution.rds.gzip
+output/Application_denovo/tmpMCMC/
+output/Application_denovo/MapSolutions/
+output/Application_denovo/checkpoint.bak/
+!output/Application_denovo/BaselineNMF/
+!output/Application_denovo/BaselineNMF/*
+
+!output/Application_denovo_sensitivity/
+!output/Application_denovo_sensitivity/*
+
+!output/Application_refit/
+!output/Application_refit/*
+output/Application_refit/MCMCSolution.rds.gzip
+output/Application_refit/checkpoint/
+
+# TensorSignatures: the PPF fit and the comparison tables. The 85 MB assembled
+# tensor is rebuilt by the script.
+!output/Comparison_TensorSignatures/
+!output/Comparison_TensorSignatures/*
+output/Comparison_TensorSignatures/dataset_chromatin.rds.gzip
+output/Comparison_TensorSignatures/icgc_chromatin/
+
+!output/Covariate_stability/
+!output/Covariate_stability/*
+output/Covariate_stability/stale_maxiter11/
+
+# Goodness of fit: the cached panels Figure 2 and S7 are drawn from. The 11 MB
+# arm-composition object belongs to a side analysis, not to a figure.
+!output/GoodnessOfFit/
+!output/GoodnessOfFit/*
+output/GoodnessOfFit/highcn_rp_1Mb.rds
+
+!output/PCAWG_clinical/
+!output/PCAWG_clinical/*
+
+!output/Replication_80Breast/
+!output/Replication_80Breast/*
+
+# Simulations: the scored results and the LaTeX tables only. The per-replicate
+# fits underneath are 24 GB and regenerate from the drivers.
+!output/Simulation_main/
+!output/Simulation_main/*
+output/Simulation_main/Scenario_A_indep/
+output/Simulation_main/Scenario_B_corr/
+
+!output/Simulation_misspec/
+!output/Simulation_misspec/*
+output/Simulation_misspec/S0_baseline/
+output/Simulation_misspec/S1_epigenome_v025/
+output/Simulation_misspec/S2_epigenome_v1/
+output/Simulation_misspec/S3_epigenome_v4/
+output/Simulation_misspec/S4_hotspots/
+output/Simulation_misspec/S5_cn_noise/
+output/Simulation_misspec/S6_opportunity/
+
 figures/*
 !figures/README.md
 
@@ -25,5 +99,12 @@ nohup.out
 __pycache__/
 *.pyc
 
-# ... except the manifest, which records what the results were computed from
-!data/MANIFEST.tsv
+# Manuscript sources: LaTeX, compiled PDFs and figure images. Kept out of the
+# code repository - the figure-to-script map in README.md is the link between them.
+PaperPPF/
+
+# Archived material: superseded figures, scripts from the predecessor codebase,
+# and stray device output. Nothing here is read by the pipeline.
+old_files/
+R/old_scripts/
+figures/old_figures/

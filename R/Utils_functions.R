@@ -1,3 +1,5 @@
+## Helper file, sourced by the analysis scripts.
+
 ## Adapters between the preprocessed cohort objects and SignaturePPF.
 
 #' Coerce a preprocessed cohort object into the form SignaturePPF expects
@@ -94,6 +96,38 @@ reconstruct_lambda <- function(fit, SignalTrack, CopyTrack) {
   E <- exp(pmin(pmax(SignalTrack[, rownames(fit$Betas), drop = FALSE] %*% fit$Betas,
                      -20), 20))
   CopyTrack * (E %*% Phi)
+}
+
+
+#' Expected count matrix under a fit
+#'
+#' The `I x J` matrix of expected mutation counts per channel and sample. Under
+#' the activity prior this needs no pass over the genome at all:
+#' \deqn{M_{ij} = \sum_b \tfrac12 c_j(b) \sum_k r_{ik}\phi_{kj}e^{\beta_k'x_b}
+#'             = \sum_k r_{ik}\phi_{kj} q_j(\beta_k) = \sum_k r_{ik}\theta_{kj},}
+#' because \eqn{q_j(\beta_k)} is exactly the integral the sum over bins performs.
+#' So the whole reconstruction is `Signatures %*% Thetas` - which is the sense in
+#' which the activity parametrisation contains an ordinary NMF, and the reason
+#' the predecessor's genome-wide `Reconstruct_CountMatrix()` has no counterpart
+#' here. `SignalTrack` and `CopyTrack` are accepted and ignored, so call sites
+#' ported from that function keep reading the same way.
+#'
+#' @param fit A `SignaturePPF` fit.
+#' @param SignalTrack,CopyTrack Unused; see above.
+#' @return An `I x J` matrix of expected counts.
+reconstruct_count_matrix <- function(fit, SignalTrack = NULL, CopyTrack = NULL) {
+  fit$Signatures %*% fit$Thetas
+}
+
+
+#' The covariate columns of a mutation set
+#'
+#' `mcols(gr_Mutations)` carries the three identifier columns first and the
+#' design after; the model reads each mutation's covariates from there.
+mutation_covariates <- function(gr_Mutations) {
+  stopifnot(identical(names(GenomicRanges::mcols(gr_Mutations))[1:3],
+                      c("tumor", "sample", "channel")))
+  as.matrix(GenomicRanges::mcols(gr_Mutations)[, -c(1:3)])
 }
 
 
@@ -219,6 +253,33 @@ count_by_bin <- function(bin_of_mut, sample_of_mut, n_bins) {
 }
 
 
+#' Donor-level clinical annotation for the ICGC cohort
+#'
+#' Built by `R/Load_PCAWG_clinical.R`; see the header of that file for what the
+#' fields do and do not contain - in particular there is NO survival data, and
+#' `project` doubles as a coarse receptor-status label that is confounded with
+#' `grade`.
+#'
+#' @param donors Optional donor ids to select and order by, so the result lines
+#'   up row-for-row with `colnames(fit$Thetas)` without a second `match()`.
+#' @return A data frame, one row per donor.
+load_clinical <- function(donors = NULL) {
+  if (!file.exists(PATH_CLINICAL)) {
+    stop("no clinical table at ", PATH_CLINICAL,
+         "\n  Build it with:  Rscript R/Load_PCAWG_clinical.R", call. = FALSE)
+  }
+  out <- utils::read.csv(PATH_CLINICAL, stringsAsFactors = FALSE)
+  if (is.null(donors)) return(out)
+
+  gone <- setdiff(donors, out$donor)
+  if (length(gone)) {
+    stop(length(gone), " donor(s) have no clinical row: ",
+         paste(utils::head(gone, 5), collapse = ", "), call. = FALSE)
+  }
+  out[match(donors, out$donor), , drop = FALSE]
+}
+
+
 #' Best cosine similarity of each column against a reference catalogue
 #'
 #' Replaces `SigPoisProcess::match_to_RefSigs()`, which was not carried over into
@@ -237,65 +298,189 @@ match_to_cosmic <- function(sigs, ref = SignaturePPF::COSMIC_v3.4_SBS96_GRCh37) 
              cosine = cs[cbind(seq_len(nrow(cs)), best)],
              row.names = NULL, stringsAsFactors = FALSE)
 }
-## Assigning individual mutations to signatures under a fitted model.
 
-#' The baseline phi_kj of a fit
+
+#' Renumber a fit's signatures
 #'
-#' The assignment probability of a mutation to signature k is proportional to
-#' \eqn{r_{ik}\,\phi_{kj}\,e^{\beta_k'x(t)}}, so it is the BASELINE that enters,
-#' not the activity.
+#' By default `SigN01` becomes the signature carrying the most mass, `SigN02` the
+#' next, and so on, with every signature-indexed slot of the solution permuted to
+#' agree. A fit numbers its signatures in whatever order the initialisation
+#' happened to put them, which means the same process carries a different label
+#' in every figure unless something imposes an order. This is that something, and
+#' it is used by the de novo figures and the TensorSignatures comparison.
 #'
-#' SignaturePPF fits the activity prior, where `$Thetas` holds the total activity
-#' \eqn{\theta_{kj} = \phi_{kj} q_j(\beta_k)} and `$Baseline` holds \eqn{\phi}.
-#' Fits from the predecessor package's original prior have no `$Baseline` at all
-#' and their `$Thetas` IS \eqn{\phi}. Both are accepted so that old fits can be
-#' re-analysed, because getting this wrong is silent: \eqn{q_j(\beta_k)} varies
-#' with k, so it does not cancel in the argmax and the assignment simply changes.
-get_baseline <- function(fit) {
-  if (!is.null(fit$Baseline)) fit$Baseline else fit$Thetas
+#' Reorder the FIT rather than the matrices pulled out of it. Several things read
+#' the labels back out of the fit itself and cannot see a reordered extract -
+#' `plot_Mu()` rebuilds its panels from `df_assign(fit, data)`, and `df_assign()`
+#' in turn reads `fit$Baseline`, NOT `fit$Thetas`, because the assignment
+#' compares per-unit-exposure rates and \eqn{q_j(\beta_k)} would not cancel. A
+#' hand-rolled permutation that moves `Signatures`, `Betas`, `Thetas` and `Mu`
+#' but forgets `Baseline` still renders a perfectly plausible figure with every
+#' mutation attributed to the wrong signature. This function moves all of them.
+#'
+#' Nothing changes numerically, but the rename is not safe to apply to half a
+#' pipeline: a relabelled fit no longer agrees with a `df_assign()` table or a
+#' figure built from the fit before it. Relabel once, straight after loading, and
+#' pass the relabelled fit everywhere downstream. With the default order,
+#' applying it twice is a no-op.
+#'
+#' @param fit A `SignaturePPF` fit.
+#' @param order The new order, as positions into the fit's current signatures or
+#'   as their names. `NULL` (default) sorts by decreasing `Mu`, which is what the
+#'   function is named after. An explicit order is for figures that group
+#'   signatures by what they are rather than by how big they are - putting SBS2
+#'   next to SBS13, say - and is NOT idempotent, so apply it once.
+#' @param prefix Label stem.
+#' @return `fit`, with a `relabel` attribute recording old label -> new label.
+relabel_by_mu <- function(fit, order = NULL, prefix = "SigN") {
+  mu  <- as.numeric(fit$Mu)
+  old <- colnames(fit$Signatures)
+
+  if (is.null(order)) {
+    ord <- base::order(mu, decreasing = TRUE)
+  } else {
+    ord <- if (is.character(order)) match(order, old) else as.integer(order)
+    # A permutation that is silently wrong scrambles the fit without erroring, so
+    # it is checked rather than trusted: every signature exactly once.
+    if (anyNA(ord) || !setequal(ord, seq_along(old))) {
+      stop("`order` must be a permutation of the fit's ", length(old),
+           " signatures, given as positions or as names. Got: ",
+           paste(utils::head(order, 12), collapse = ", "), call. = FALSE)
+    }
+  }
+  new <- sprintf("%s%02d", prefix, seq_along(ord))
+
+  perm_col <- function(m) { m <- m[, ord, drop = FALSE]; colnames(m) <- new; m }
+  perm_row <- function(m) { m <- m[ord, , drop = FALSE]; rownames(m) <- new; m }
+
+  for (s in intersect(c("Signatures", "SigPrior", "Betas"), names(fit)))
+    fit[[s]] <- perm_col(fit[[s]])                     # I x K, I x K, p x K
+  for (s in intersect(c("Thetas", "Baseline", "Q"), names(fit)))
+    fit[[s]] <- perm_row(fit[[s]])                     # K x J
+  for (s in intersect(c("Mu", "Sigma2"), names(fit)))
+    fit[[s]] <- stats::setNames(as.numeric(fit[[s]])[ord], new)
+
+  # The credible bounds are shaped like the block they bound.
+  for (bound in c("lowCI", "highCI")) {
+    ci <- fit[[bound]]
+    if (is.null(ci)) next
+    for (b in intersect(c("Signatures", "Betas"), names(ci))) ci[[b]] <- perm_col(ci[[b]])
+    for (b in intersect("Thetas", names(ci))) ci[[b]] <- perm_row(ci[[b]])
+    for (b in intersect(c("Mu", "Sigma2"), names(ci)))
+      ci[[b]] <- stats::setNames(as.numeric(ci[[b]])[ord], new)
+    fit[[bound]] <- ci
+  }
+
+  # The raw optimizer output carries no dimnames at all, so it cannot be caught
+  # by a name lookup later: left alone it would silently disagree with the
+  # relabelled solution above. It is only permutable while it still describes the
+  # SAME signature set - after prune_signatures() the record deliberately keeps
+  # every signature and the solution does not, and applying a K-long permutation
+  # to a K_fitted-wide matrix would quietly scramble it.
+  m <- fit$MAPsolution
+  if (!is.null(m) && ncol(m$R) == length(ord)) {
+    for (s in intersect(c("R", "Betas", "Mu", "Sigma2"), names(m)))
+      m[[s]] <- m[[s]][, ord, drop = FALSE]            # Mu, Sigma2 are 1 x K
+    for (s in intersect(c("Theta", "Phi", "Q"), names(m)))
+      m[[s]] <- m[[s]][ord, , drop = FALSE]
+    fit$MAPsolution <- m
+  }
+
+  # The chain DOES carry signature names, and `posterior_CI()` subsets it by the
+  # solution's colnames - so leaving it under the old numbering would not error,
+  # it would quietly return a different signature's draws. Relabel it to match.
+  # Only the labels move: the draws stay in the order they were sampled, and any
+  # signature `prune_signatures()` dropped is still there, numbered after the
+  # retained block rather than renamed onto one of them.
+  if (!is.null(fit$MCMCchain)) {
+    full <- dimnames(fit$MCMCchain$MUchain)[[2]]
+    lab <- stats::setNames(rep(NA_character_, length(full)), full)
+    lab[old[ord]] <- new
+    rest <- full[is.na(lab)]
+    if (length(rest)) {
+      lab[rest] <- sprintf("%s%02d", prefix, length(ord) + seq_along(rest))
+    }
+    ch <- fit$MCMCchain
+    for (s in c("SIGSchain", "BETASchain")) {                 # draw x . x sig
+      dimnames(ch[[s]])[[3]] <- unname(lab[dimnames(ch[[s]])[[3]]])
+    }
+    for (s in c("THETAchain")) {                              # draw x sig x sample
+      dimnames(ch[[s]])[[2]] <- unname(lab[dimnames(ch[[s]])[[2]]])
+    }
+    for (s in c("MUchain", "SIGMA2chain", "SHRINKchain", "ADAPTchain")) {
+      if (is.null(ch[[s]])) next
+      dimnames(ch[[s]])[[2]] <- unname(lab[dimnames(ch[[s]])[[2]]])
+    }
+    fit$MCMCchain <- ch
+    if (length(fit$pruned)) fit$pruned <- unname(lab[fit$pruned])
+  }
+
+  attr(fit, "relabel") <- data.frame(from = old[ord], to = new, mu = mu[ord],
+                                     row.names = NULL, stringsAsFactors = FALSE)
+  fit
 }
 
 
-#' Most probable signature for every mutation
+
+## Mutation assignment lives in the package now: assign_mutations(), df_assign()
+## and the phi lookup they share are all exported by SignaturePPF. Keeping copies
+## here masked them whenever load_functions() ran after library(SignaturePPF),
+## which is every script - and a masked copy is worse than a missing one, because
+## it silently wins.
+
+
+## ---------------------------------------------------------------------------
+## MCMC bookkeeping shared by the application figure scripts and the simulation
+## studies. These lived in Simulation_functions_misspec.R, which the application
+## scripts never source, so Reproduce_figures_Application_denovo.R and _refit.R
+## both failed on them. They are not misspecification code, so they belong here,
+## where load_functions() picks them up for every script.
+## ---------------------------------------------------------------------------
+
+#' Which stored draws survive the burn-in
 #'
-#' @param fit A fitted model.
-#' @param data The cohort it was fitted on, or a bare `GRanges` of mutations.
-#'   The second form is for comparing SEVERAL fits on ONE fixed set of
-#'   mutations: `mcols` need only carry the covariates that fit uses, so a set
-#'   of mutations can be pushed through a whole sequence of nested models.
-#' @return A character vector, one signature name per mutation.
-assign_mutations <- function(fit, data) {
-  gr <- if (methods::is(data, "GRanges")) data else data$gr_Mutations
-  Phi <- get_baseline(fit)
-  X <- as.matrix(GenomicRanges::mcols(gr)[, rownames(fit$Betas), drop = FALSE])
-
-  # as.character() is not decoration: `channel` and `sample` are factors, and
-  # indexing a matrix with a factor uses its integer CODES, not its labels. That
-  # happens to be right when the fit was built on this exact object and wrong,
-  # silently, as soon as the signatures have been pruned or reordered.
-  bigProd <- fit$Signatures[as.character(gr$channel), , drop = FALSE] *
-    t(Phi[, as.character(gr$sample), drop = FALSE]) *
-    exp(pmin(pmax(X %*% fit$Betas, -20), 20))
-
-  # max.col, not apply(., 1, which.max): identical result including ties, but it
-  # does not loop in R over several hundred thousand mutations.
-  colnames(fit$Signatures)[max.col(bigProd, ties.method = "first")]
+#' The chain is indexed by stored draw and `burnin` is in iterations, so the cut is
+#' at `index * thin > burnin`. Dropping the first `burnin` ROWS would discard the
+#' wrong draws whenever `thin > 1`.
+kept_draw_index <- function(fit) {
+  n <- dim(fit$MCMCchain$MUchain)[1]
+  which(seq_len(n) * fit$controls$thin > fit$controls$burnin)
 }
 
+#' Effective sample size of a chain block, post burn-in
+get_PosteriorEffectiveSize <- function(chain, keep) {
+  # The log-density chains are only recorded every `logpost_every` iterations,
+  # so the slots in between are NA, and coda::effectiveSize calls na.fail on
+  # them. Dropping them makes the ESS that of the recorded (thinned) series,
+  # which is the only series that exists. The parameter chains are dense, so
+  # this is a no-op for them.
+  ess1 <- function(x) {
+    x <- x[is.finite(x)]
+    if (length(x) < 2) NA_real_ else unname(coda::effectiveSize(x))
+  }
+  if (is.null(dim(chain))) {
+    ess1(chain[keep])
+  } else if (length(dim(chain)) == 2) {
+    apply(chain[keep, , drop = FALSE], 2, ess1)
+  } else {
+    apply(chain[keep, , , drop = FALSE], c(2, 3), ess1)
+  }
+}
 
-#' Mutations attributed to each signature, alongside its relevance weight
+#' Attribution probabilities of every mutation under a fitted model
 #'
-#' @param fit A fitted model.
-#' @param data The cohort it was fitted on.
-#' @return A data frame with one row per signature: `best_sig`, the number of
-#'   mutations `m` assigned to it, and its `mu`. Signatures that win no mutation
-#'   are kept with `m = 0` - they are exactly the ones worth seeing.
-df_assign <- function(fit, data) {
-  levs <- colnames(fit$Signatures)
-  counts <- table(factor(assign_mutations(fit, data), levels = sort(levs)))
-  data.frame(best_sig = names(counts), m = as.integer(counts),
-             row.names = NULL, stringsAsFactors = FALSE) |>
-    merge(data.frame(best_sig = names(fit$Mu), mu = as.numeric(fit$Mu),
-                     stringsAsFactors = FALSE),
-          by = "best_sig", all.x = TRUE)
+#' `Theta` here is the BASELINE. `Betas = NULL` gives the position-independent
+#' NMF case, where the probability reduces to R[i,k] * theta[k,j].
+Compute_mutation_Probs <- function(gr_Mutations, R, Theta, Betas = NULL) {
+  ch <- as.character(gr_Mutations$channel)
+  sm <- as.character(gr_Mutations$sample)
+  Probs <- R[ch, , drop = FALSE] * t(Theta[, sm, drop = FALSE])
+  if (!is.null(Betas)) {
+    X <- as.matrix(GenomicRanges::mcols(gr_Mutations)[, rownames(Betas), drop = FALSE])
+    Probs <- Probs * exp(X %*% Betas)
+  }
+  Probs <- Probs / rowSums(Probs)
+  colnames(Probs) <- colnames(R)
+  rownames(Probs) <- ch
+  Probs
 }

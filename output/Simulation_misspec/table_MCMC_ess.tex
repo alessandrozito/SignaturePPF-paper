@@ -1,0 +1,34 @@
+\begin{table}[th]
+\caption{Computation time and effective sample sizes (ESS) of the PPF sampler under misspecification. Shown are averages across 20 datasets per scenario, with standard deviations in parentheses. ESS for $R$, $\Theta$, $B$, $\mu$ and $\sigma^2$ is calculated over the last 1500 draws; the log-posterior is recorded once every ten iterations, so its ESS is calculated over the 150 recorded values.}
+\centering
+\small
+\begin{adjustbox}{max width=1\textwidth,center}
+\begin{tabular}{|cl|c|cccccc|}
+\hline
+\multicolumn{2}{|c|}{\textsc{Scenario}} & \textsc{Time (min)} & \textsc{ESS} $R$ & \textsc{ESS} $\Theta$ & \textsc{ESS} $B$ & \textsc{ESS} $\mu$ & \textsc{ESS} $\sigma^2$ & \textsc{ESS} logPost \\
+\hline
+S0 & correctly specified & 32 & 329 & 466 & 164 & 1049 & 1502 & 157 \\
+ & & {\scriptsize (10)} & {\scriptsize (46)} & {\scriptsize (45)} & {\scriptsize (19)} & {\scriptsize (167)} & {\scriptsize (79)} & {\scriptsize (28)} \\
+\hline
+S1 & $v^2 = 0.25$ & 31 & 300 & 431 & 154 & 1020 & 1479 & 165 \\
+ & & {\scriptsize (5)} & {\scriptsize (33)} & {\scriptsize (36)} & {\scriptsize (10)} & {\scriptsize (157)} & {\scriptsize (45)} & {\scriptsize (32)} \\
+\hline
+S2 & $v^2 = 1$ & 32 & 243 & 371 & 140 & 875 & 1458 & 150 \\
+ & & {\scriptsize (6)} & {\scriptsize (23)} & {\scriptsize (31)} & {\scriptsize (11)} & {\scriptsize (121)} & {\scriptsize (71)} & {\scriptsize (38)} \\
+\hline
+S3 & $v^2 = 4$ & 30 & 185 & 304 & 137 & 703 & 1503 & 175 \\
+ & & {\scriptsize (5)} & {\scriptsize (18)} & {\scriptsize (35)} & {\scriptsize (19)} & {\scriptsize (168)} & {\scriptsize (28)} & {\scriptsize (154)} \\
+\hline
+S4 & $+$ hotspots & 33 & 186 & 297 & 131 & 687 & 1464 & 133 \\
+ & & {\scriptsize (5)} & {\scriptsize (28)} & {\scriptsize (34)} & {\scriptsize (15)} & {\scriptsize (103)} & {\scriptsize (56)} & {\scriptsize (56)} \\
+\hline
+S5 & $+$ CN noise & 29 & 171 & 292 & 131 & 620 & 1506 & 142 \\
+ & & {\scriptsize (4)} & {\scriptsize (16)} & {\scriptsize (34)} & {\scriptsize (14)} & {\scriptsize (141)} & {\scriptsize (41)} & {\scriptsize (42)} \\
+\hline
+S6 & $+$ opportunity & 26 & 191 & 273 & 125 & 568 & 1500 & 146 \\
+ & & {\scriptsize (6)} & {\scriptsize (15)} & {\scriptsize (36)} & {\scriptsize (12)} & {\scriptsize (126)} & {\scriptsize (25)} & {\scriptsize (48)} \\
+\hline
+\end{tabular}
+\end{adjustbox}
+\label{tab:mcmc_misspec}
+\end{table}

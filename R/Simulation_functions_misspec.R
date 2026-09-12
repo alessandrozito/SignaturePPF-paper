@@ -1,28 +1,13 @@
 ## Misspecification study: data generation, model fitting and scoring.
-##
-## The GENERATIVE half is carried over from the predecessor project unchanged -
-## it defines the data-generating process the paper reports. The only edit is in
-## `sample_dataset_misspec()`, which now accepts `ncores = 1` and runs the patient
-## loop sequentially; the study parallelises over replicates instead, so nesting
-## a 20-way fork inside each replicate would oversubscribe the machine.
-##
-## The FITTING and SCORING halves are ported to SignaturePPF. The one change that
-## matters is the meaning of theta. The predecessor's original prior stored the
-## per-unit-exposure BASELINE in `fit$Thetas`; SignaturePPF fits the activity
-## prior, where `fit$Thetas` is the TOTAL expected count and the baseline lives in
-## `fit$Baseline`. Every intensity reconstruction and every attribution
-## probability needs the baseline, so each of those sites reads `$Baseline`.
-## Getting this wrong is silent - the two differ by q_j(beta_k), which varies with
-## k and so does not cancel in an argmax.
 
 ################################################################################
 # Part 0 - Channel opportunity
 ################################################################################
 
-#' Genome-wide trinucleotide opportunities from hg19, cached to disk
-#'
-#' The scan is slow and the answer never changes, so it is computed once and
-#' read back afterwards.
+if (!exists("get_PosteriorEffectiveSize", mode = "function")) {
+  source(file.path(R_DIR, "Utils_functions.R"))
+}
+
 compute_mutation_opportunities_hg19 <- function(
     channels = rownames(SignaturePPF::COSMIC_v3.4_SBS96_GRCh37),
     genome = "BSgenome.Hsapiens.UCSC.hg19",
@@ -177,8 +162,7 @@ add_CopyNumber_noise <- function(CopyTrack_true, cn_noise_sd, cn_min = 0.01) {
 
 #' Draw the hypermutation hotspots as (patient, signature) records
 #'
-#' Positions are independent of x(t), so the hotspot is invisible to the
-#' covariate model - which is the point. `mu` is additive and decoupled from the
+#' Positions are independent of x(t). `mu` is additive and decoupled from the
 #' sparse background, so it sets the height of the spike directly.
 draw_hotspot_records <- function(carriers, hot_cols, sig_names, n_tiles,
                                  n_hot = 5, width = 0, mu = 30) {
@@ -234,10 +218,6 @@ compute_true_probs <- function(mut, j, R, Theta, ExpBetas_j, CopyTrack_true,
 
 
 #' All mutations of one patient, as a superposition of per-signature processes
-#'
-#' Sampling per signature rather than marginalising over k records the true
-#' generating signature of every mutation, which is what makes mutation-level
-#' attribution accuracy and calibration measurable at all.
 sample_mutations_patient_misspec <- function(j, R, Theta, ExpBetas_j, CopyTrack_true,
                                              tilewidth = 100,
                                              opportunity = 1,
@@ -304,13 +284,6 @@ sample_mutations_patient_misspec <- function(j, R, Theta, ExpBetas_j, CopyTrack_
 
 
 #' Sample every patient
-#'
-#' When `epigenome_noise_sd > 0` each patient gets its own perturbed track
-#' x_j(t), which is the violation the covariate model cannot see.
-#'
-#' CHANGED from the original: `ncores = 1` registers the sequential backend
-#' instead of a one-worker cluster, because the study now parallelises over
-#' replicates and a nested fork per patient would oversubscribe the machine.
 sample_dataset_misspec <- function(R, Theta, Xcovs, Betas, ExpBetas_shared,
                                    CopyTrack_true, tilewidth,
                                    opportunity, nb_size,
@@ -365,10 +338,6 @@ sample_dataset_misspec <- function(R, Theta, Xcovs, Betas, ExpBetas_shared,
 
 
 #' One misspecification dataset
-#'
-#' The returned list carries both what an analyst would see (`gr_CopyTrack`, the
-#' NOISY copy number) and the truth needed to score against (`CopyTrack_true`,
-#' `signature_true`, `p_true`, `hotspot_records`).
 generate_MutationData_misspec <- function(J = 100,
                                           cosmic_sigs = c("SBS1", "SBS2", "SBS3",
                                                           "SBS5", "SBS8", "SBS13",
@@ -531,10 +500,6 @@ generate_MutationData_misspec <- function(J = 100,
 ################################################################################
 
 #' Train / test split of the genome
-#'
-#' The LAST `n_test_bins` tiles are held out: no model sees them at fitting time
-#' and every metric is reported in-sample and out-of-sample separately. The tiles
-#' are contiguous, so one cut point defines the split.
 split_bins_misspec <- function(data, n_test_bins = 4000) {
   n_bins <- length(data$gr_SignalTrack)
   n_train <- n_bins - n_test_bins
@@ -568,13 +533,6 @@ ppf_training_data <- function(data, n_test_bins = 4000) {
 
 
 #' DE NOVO fits: the two competitors plus SignaturePPF, signatures ESTIMATED
-#'
-#' Each model is toggleable and each output is skipped when its file already
-#' exists, so an interrupted study restarts where it stopped.
-#'
-#' The MCMC starts from the MAP. `init_mcmc_from_map = FALSE` is deliberate: the
-#' package would otherwise re-run the optimiser inside the MCMC call, and the MAP
-#' has already been computed and saved here.
 run_models_misspec <- function(out_dir,
                                K = 15,
                                n_test_bins = 4000,
@@ -630,7 +588,8 @@ run_models_misspec <- function(out_dir,
   if (run_MAP && todo("output_map_FullModel.rds.gzip")) {
     out_map <- SignaturePPF::SignaturePPF(
       train, sigs = NULL, K = K, method = "map",
-      prior = prior, controls = controls, seed = seed, verbose = FALSE)
+      prior = prior, controls = controls, seed = seed, verbose = FALSE,
+      prune_solution = FALSE)   # scored by this file's own rule; see Simulation_main.R
     saveRDS(out_map, file.path(out_dir, "output_map_FullModel.rds.gzip"), compress = "gzip")
   }
 
@@ -646,7 +605,8 @@ run_models_misspec <- function(out_dir,
     out_mcmc <- SignaturePPF::SignaturePPF(
       train, sigs = NULL, K = K, method = "mcmc",
       prior = prior, controls = controls, init = init,
-      init_mcmc_from_map = FALSE, seed = seed, verbose = FALSE)
+      init_mcmc_from_map = FALSE, seed = seed, verbose = FALSE,
+      prune_solution = FALSE)
     saveRDS(out_mcmc, file.path(out_dir, "output_mcmc_FullModel.rds.gzip"), compress = "gzip")
   }
   invisible(NULL)
@@ -654,9 +614,6 @@ run_models_misspec <- function(out_dir,
 
 
 #' FIXED-signature fits, for the attribution / calibration use case
-#'
-#' The catalogue is the true signatures plus distractors, so the model is handed
-#' more signatures than the data contains and has to decline the extras.
 run_models_misspec_fixed <- function(out_dir,
                                      distractors = c("SBS6", "SBS20", "SBS26",
                                                      "SBS40a", "SBS30"),
@@ -701,7 +658,8 @@ run_models_misspec_fixed <- function(out_dir,
   if (run_MAP && todo("output_map_Fixed.rds.gzip")) {
     out_map <- SignaturePPF::SignaturePPF(
       train, sigs = R_fixed, sigs_fixed = TRUE, method = "map",
-      prior = prior, controls = controls, seed = seed, verbose = FALSE)
+      prior = prior, controls = controls, seed = seed, verbose = FALSE,
+      prune_solution = FALSE)   # a refit reports every reference, parked or not
     saveRDS(out_map, file.path(out_dir, "output_map_Fixed.rds.gzip"), compress = "gzip")
   }
 
@@ -717,7 +675,8 @@ run_models_misspec_fixed <- function(out_dir,
     out_mcmc <- SignaturePPF::SignaturePPF(
       train, sigs = R_fixed, sigs_fixed = TRUE, method = "mcmc",
       prior = prior, controls = controls, init = init,
-      init_mcmc_from_map = FALSE, seed = seed, verbose = FALSE)
+      init_mcmc_from_map = FALSE, seed = seed, verbose = FALSE,
+      prune_solution = FALSE)
     saveRDS(out_mcmc, file.path(out_dir, "output_mcmc_Fixed.rds.gzip"), compress = "gzip")
   }
   invisible(NULL)
@@ -738,17 +697,45 @@ fit_runtime_mins <- function(res) {
 }
 
 
+#' The optimiser's iteration count, or the chain's effective sample sizes
+sampling_details_of <- function(res, keep = NULL) {
+  blank <- c(iter = NA_real_, effectiveBetas = NA_real_, effectiveSigs = NA_real_,
+             effectiveTheta = NA_real_, effectiveMu = NA_real_,
+             effectiveSigma2 = NA_real_, effectiveLogPost = NA_real_,
+             effectiveLogLik = NA_real_, effectiveLogPrior = NA_real_)
+
+  if (is.null(res$MCMCchain)) {
+    it <- if (!is.null(res$MAPsolution$iter)) res$MAPsolution$iter
+          else if (!is.null(res$mapOutput$iter)) res$mapOutput$iter
+          else NA_real_
+    blank["iter"] <- as.numeric(it)
+    return(blank)
+  }
+
+  keep_draws <- kept_draw_index(res)
+  chain_sigs <- dimnames(res$MCMCchain$MUchain)[[2]]
+  if (is.null(keep)) keep <- chain_sigs else keep <- intersect(keep, chain_sigs)
+  if (!length(keep)) keep <- chain_sigs
+  ess <- function(x) mean(get_PosteriorEffectiveSize(x, keep_draws), na.rm = TRUE)
+  scalar_ess <- function(x) unname(get_PosteriorEffectiveSize(
+    c(x)[keep_draws], seq_along(keep_draws)))
+
+  c(iter = NA_real_,
+    effectiveBetas = ess(res$MCMCchain$BETASchain[, , keep, drop = FALSE]),
+    effectiveSigs = ess(res$MCMCchain$SIGSchain[, , keep, drop = FALSE]),
+    effectiveTheta = ess(res$MCMCchain$THETAchain[, keep, , drop = FALSE]),
+    effectiveMu = ess(res$MCMCchain$MUchain[, keep, drop = FALSE]),
+    effectiveSigma2 = ess(res$MCMCchain$SIGMA2chain[, keep, drop = FALSE]),
+    effectiveLogPost = scalar_ess(res$MCMCchain$logPostchain),
+    effectiveLogLik = scalar_ess(res$MCMCchain$logLikchain),
+    effectiveLogPrior = scalar_ess(res$MCMCchain$logPriorchain))
+}
+
+
 #' A common estimate structure for any of the three model types
-#'
-#' Returns the signature matrix, the per-unit-exposure BASELINE, the coefficients
-#' (all-zero for the covariate-free competitors), the total activity and the
-#' reconstructed intensity. Near-flat signatures are dropped.
 extract_estimates_misspec <- function(res, model_type, SignalTrack, CopyTrack) {
   flat <- matrix(rep(1 / 96, 96))
   if (model_type == "PPF") {
-    # Same rule as the predecessor. Under the activity prior mu is an expected
-    # count per patient, so a compressed signature sits at ~epsilon and a live one
-    # at tens or hundreds: the threshold separates them by orders of magnitude.
     cutoff <- 5 * res$prior$a * res$prior$epsilon
     keep <- (res$Mu > 5 * cutoff) &
       (c(sigminer::cosine(res$Signatures, flat)) < 0.975)
@@ -904,11 +891,6 @@ evaluate_attribution_calibration <- function(P, lab, signature_true, true_sigs,
 
 
 #' Which covariate effects does the model declare non-zero?
-#'
-#' For an MCMC fit: the 95% credible interval excludes zero. `posterior_CI()`
-#' does the burn-in and thinning arithmetic, which cannot be done by dropping the
-#' first `burnin` ROWS of the chain - the rows are thinned draws, not sweeps.
-#' Returns NULL for a fit with no chain.
 beta_CI_excludes_zero <- function(fit, level = 0.95, dimnames_ref = NULL) {
   if (is.null(fit$MCMCchain) || is.null(fit$MCMCchain$BETASchain)) return(NULL)
   ci <- SignaturePPF::posterior_CI(fit, what = "Betas", level = level)
@@ -949,10 +931,6 @@ compute_sign_Betas <- function(Beta_true, Beta_hat, selected = NULL) {
 
 
 #' DE NOVO evaluation: reconstruction of signatures, activities, effects, counts
-#'
-#' Truth is the TRUE copy number and the TRUE parameters; the models were fitted
-#' on the noisy copy number and on the training tiles only, so intensity and
-#' counts are scored in-sample and out-of-sample separately.
 postProcessOutput_misspec <- function(out_dir, beta_tol = 0.05, n_test_bins = 4000) {
   data <- readRDS(file.path(out_dir, "data.rds.gzip"))
   tilewidth <- data$simulation_parameters$tilewidth
@@ -1033,6 +1011,7 @@ postProcessOutput_misspec <- function(out_dir, beta_tol = 0.05, n_test_bins = 40
                rmse_counts_in = rmse_counts_in,
                rmse_counts_out = rmse_counts_out,
                time = fit_runtime_mins(res),
+               t(sampling_details_of(res, keep = colnames(est$R_hat))),
                stringsAsFactors = FALSE)
   }
 
@@ -1052,23 +1031,6 @@ postProcessOutput_misspec <- function(out_dir, beta_tol = 0.05, n_test_bins = 40
 }
 
 
-#' Attribution probabilities of every mutation under a fitted model
-#'
-#' `Theta` here is the BASELINE. `Betas = NULL` gives the position-independent
-#' NMF case, where the probability reduces to R[i,k] * theta[k,j].
-Compute_mutation_Probs <- function(gr_Mutations, R, Theta, Betas = NULL) {
-  ch <- as.character(gr_Mutations$channel)
-  sm <- as.character(gr_Mutations$sample)
-  Probs <- R[ch, , drop = FALSE] * t(Theta[, sm, drop = FALSE])
-  if (!is.null(Betas)) {
-    X <- as.matrix(GenomicRanges::mcols(gr_Mutations)[, rownames(Betas), drop = FALSE])
-    Probs <- Probs * exp(X %*% Betas)
-  }
-  Probs <- Probs / rowSums(Probs)
-  colnames(Probs) <- colnames(R)
-  rownames(Probs) <- ch
-  Probs
-}
 
 
 #' The baseline of a fit, whichever package produced it
@@ -1172,8 +1134,20 @@ postProcessCalibration_misspec <- function(out_dir,
 
 
 #' Calibration curves: cumulative confidence against cumulative P(correct)
-plot_calibration_curves <- function(data, fit, set = c("all", "in", "out"),
-                                    n_test_bins = 4000) {
+CALIBRATION_TYPES <- c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+CALIBRATION_COLS <- c("C>A" = "#16BDEB", "C>G" = "#000000", "C>T" = "#E22926",
+                      "T>A" = "#A6A6A6", "T>C" = "#A1CE63", "T>G" = "#EBC6C4")
+
+
+#' The cumulative calibration curve of one fit, split by substitution type
+#'
+#' Split out of `plot_calibration_curves` so that several fits can be assembled
+#' into one faceted figure without duplicating the curve logic. `thin` keeps at
+#' most that many equally spaced points per type, always including the last one:
+#' the curve is a cumulative average over ~2e5 mutations, so drawing every point
+#' is invisible on the page and expensive in the PDF.
+calibration_curve_data <- function(data, fit, set = c("all", "in", "out"),
+                                   n_test_bins = 4000, thin = NULL) {
   set <- match.arg(set)
   true_probs <- data$p_true
   pred_probs <- if (!is.null(fit$Betas))
@@ -1199,29 +1173,44 @@ plot_calibration_curves <- function(data, fit, set = c("all", "in", "out"),
   p_correct[ok] <- true_probs[cbind(which(ok), col_in_true[ok])]
 
   mut_type <- sub(".*\\[(.*)\\].*", "\\1", rownames(pred_probs))
-  types <- c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
-  cols <- c("C>A" = "#16BDEB", "C>G" = "#000000", "C>T" = "#E22926",
-            "T>A" = "#A6A6A6", "T>C" = "#A1CE63", "T>G" = "#EBC6C4")
 
-  df <- do.call(rbind, lapply(types, function(ty) {
+  df <- do.call(rbind, lapply(CALIBRATION_TYPES, function(ty) {
     idx <- which(mut_type == ty)
     if (!length(idx)) return(NULL)
     m <- length(idx)
-    data.frame(type = ty,
-               conf = cumsum(best_prob[idx]) / m,
-               pcorrect = cumsum(p_correct[idx]) / m,
+    conf <- cumsum(best_prob[idx]) / m
+    pcorrect <- cumsum(p_correct[idx]) / m
+    keep <- if (is.null(thin) || m <= thin) seq_len(m) else
+      unique(c(round(seq(1, m, length.out = thin)), m))
+    data.frame(type = ty, conf = conf[keep], pcorrect = pcorrect[keep],
                stringsAsFactors = FALSE)
   }))
-  df$type <- factor(df$type, levels = types)
-  ends <- do.call(rbind, lapply(split(df, df$type), function(d) d[nrow(d), , drop = FALSE]))
+  df$type <- factor(df$type, levels = CALIBRATION_TYPES)
+  df
+}
+
+
+#' The endpoint of every curve, i.e. the overall mean of each substitution type
+calibration_curve_ends <- function(df, by = "type") {
+  do.call(rbind, lapply(split(df, df[by], drop = TRUE),
+                        function(d) d[nrow(d), , drop = FALSE]))
+}
+
+
+plot_calibration_curves <- function(data, fit, set = c("all", "in", "out"),
+                                    n_test_bins = 4000) {
+  df <- calibration_curve_data(data, fit, set = set, n_test_bins = n_test_bins)
+  ends <- calibration_curve_ends(df)
 
   ggplot2::ggplot(df, ggplot2::aes(x = .data$conf, y = .data$pcorrect,
                                    colour = .data$type)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     ggplot2::geom_line(linewidth = 0.9) +
     ggplot2::geom_point(data = ends, size = 2.4) +
-    ggplot2::scale_colour_manual(values = cols, name = "Mutation type") +
+    ggplot2::scale_colour_manual(values = CALIBRATION_COLS, name = "Mutation type") +
     ggplot2::coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
     ggplot2::labs(x = "Cumulative mean confidence", y = "Cumulative P(correct)") +
     ggplot2::theme_bw()
 }
+
+

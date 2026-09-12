@@ -1,0 +1,4 @@
+"model","K","rmse"
+"SignaturePPF",10,13.72
+"CompressiveNMF",5,14.63
+"SignatureAnalyzer",9,13.37

@@ -1,0 +1,35 @@
+\begin{table}[th]
+\caption{Computation time and number of iterations for MAP-based methods under misspecification. Shown are averages across 20 datasets per scenario, with standard deviations in parentheses beneath each entry. SignatureAnalyzer reports no iteration count.}
+\centering
+\footnotesize
+\begin{adjustbox}{max width=1\textwidth,center}
+\begin{tabular}{|cl|cc|cc|cc|}
+\hline
+\multicolumn{2}{|c|}{\textsc{Scenario}} & \multicolumn{2}{c|}{\textsc{CompressiveNMF}} & \multicolumn{2}{c|}{\textsc{SignatureAnalyzer}} & \multicolumn{2}{c|}{\textsc{PPF, MAP}} \\
+& & \textsc{Time (min)} & \textsc{Iter.} & \textsc{Time (min)} & \textsc{Iter.} & \textsc{Time (min)} & \textsc{Iter.} \\
+\hline
+S0 & correctly specified & 0.012 & 5676.8 & 1.4 & --- & 7.9 & 314.5 \\
+ & & {\scriptsize (0.005)} & {\scriptsize (2693.0)} & {\scriptsize (0.4)} & --- & {\scriptsize (4.6)} & {\scriptsize (122.0)} \\
+\hline
+S1 & $v^2 = 0.25$ & 0.022 & 5848.3 & 2.1 & --- & 7.0 & 293.5 \\
+ & & {\scriptsize (0.016)} & {\scriptsize (3117.4)} & {\scriptsize (0.5)} & --- & {\scriptsize (3.1)} & {\scriptsize (104.6)} \\
+\hline
+S2 & $v^2 = 1$ & 0.043 & 8306.8 & 1.9 & --- & 7.8 & 319.5 \\
+ & & {\scriptsize (0.092)} & {\scriptsize (15620.8)} & {\scriptsize (0.8)} & --- & {\scriptsize (4.0)} & {\scriptsize (122.0)} \\
+\hline
+S3 & $v^2 = 4$ & 0.028 & 7982.2 & 2.0 & --- & 8.4 & 362.5 \\
+ & & {\scriptsize (0.017)} & {\scriptsize (6587.2)} & {\scriptsize (0.8)} & --- & {\scriptsize (3.4)} & {\scriptsize (100.0)} \\
+\hline
+S4 & $+$ hotspots & 0.030 & 7453.4 & 2.1 & --- & 9.4 & 380.5 \\
+ & & {\scriptsize (0.023)} & {\scriptsize (5399.7)} & {\scriptsize (0.5)} & --- & {\scriptsize (3.9)} & {\scriptsize (148.0)} \\
+\hline
+S5 & $+$ CN noise & 0.019 & 6156.6 & 1.9 & --- & 7.4 & 332.0 \\
+ & & {\scriptsize (0.014)} & {\scriptsize (4885.4)} & {\scriptsize (0.6)} & --- & {\scriptsize (2.6)} & {\scriptsize (101.5)} \\
+\hline
+S6 & $+$ opportunity & 0.022 & 7335.7 & 2.4 & --- & 8.3 & 371.5 \\
+ & & {\scriptsize (0.014)} & {\scriptsize (3298.4)} & {\scriptsize (0.8)} & --- & {\scriptsize (3.6)} & {\scriptsize (143.9)} \\
+\hline
+\end{tabular}
+\end{adjustbox}
+\label{tab:sim_time_misspec}
+\end{table}

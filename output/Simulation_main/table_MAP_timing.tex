@@ -1,0 +1,38 @@
+\begin{table}[th]
+\caption{Computation time and number of iterations for MAP-based methods. Shown are averages across 20 randomly generated datasets, with standard deviation in parentheses beneath each entry.}
+\centering
+\footnotesize
+\begin{adjustbox}{max width=1\textwidth,center}
+\begin{tabular}{|cl|cc|cc|}
+\hline
+ \multicolumn{2}{|c|}{\textsc{Method}} & \multicolumn{2}{c|}{\textsc{Scenario A}} & \multicolumn{2}{c|}{\textsc{Scenario B}} \\
+& & \textsc{Time (min)} & \textsc{Iterations} & \textsc{Time (min)} & \textsc{Iterations} \\
+\hline
+\ref{simmod:add_MAPTrue}) & MAP, true $\bx$
+  & 6.2  & 447.5
+  & 8.3  & 487.0 \\
+& & {\scriptsize (3.9)} & {\scriptsize (242.1)}
+ & {\scriptsize (6.6)} & {\scriptsize (314.0)} \\
+\hline
+\ref{simmod:add_compNMF}) & MAP, CompNMF
+  & 0.012  & 5495.1
+  & 0.014  & 4775.6 \\
+& & {\scriptsize (0.008)} & {\scriptsize (3361.0)}
+ & {\scriptsize (0.009)} & {\scriptsize (2623.6)} \\
+\hline
+\ref{simmod:add_noCovs}) & MAP, no $\bx$
+  & 2.8  & 750.0
+  & 3.5  & 694.0 \\
+& & {\scriptsize (1.6)} & {\scriptsize (400.4)}
+ & {\scriptsize (2.1)} & {\scriptsize (331.9)} \\
+\hline
+\ref{simmod:add_MAP}) & MAP, all $\bx$
+  & 6.6  & 442.5
+  & 8.3  & 468.5 \\
+& & {\scriptsize (3.8)} & {\scriptsize (251.2)}
+ & {\scriptsize (6.4)} & {\scriptsize (317.4)} \\
+\hline
+\end{tabular}
+\end{adjustbox}
+\label{tab:sim_time_results}
+\end{table}

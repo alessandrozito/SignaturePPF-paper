@@ -1,11 +1,8 @@
 ################################################################################
+# Produces: no figure. Builds data/preprocessed/Breast80_data.rds.gzip
+#
 # Build the 80-cancer breast cohort object from the raw calls
 #
-# Davies et al. (2017). The front end differs from the ICGC one - mutations
-# arrive as 80 per-sample CaVEMan VCFs and copy number as 80 ASCAT segment
-# tables, so the SNVs have to be read, filtered to clean single-base
-# substitutions, and assigned a trinucleotide channel from hg19. Everything
-# after that is the same binning code the ICGC preprocessing uses.
 #
 # Usage:  Rscript R/Preprocess_Breast80.R [tilewidth]
 #
@@ -14,16 +11,6 @@
 #              so the two must be binned identically.
 #
 # The output is skipped if it already exists. About five minutes.
-#
-# NOTE. The copy of Breast80_data.rds.gzip shipped in data/ was built by the
-# predecessor project, before the merge_with_tumor() fix documented in
-# Preprocess_functions.R, so rebuilding will not reproduce it byte for byte:
-# mutations in assembly gaps were previously kept and given an all-zero
-# covariate row, which after standardisation reads as an average bin. The
-# existing file is left alone unless it is deleted first.
-#
-# (The predecessor's loader hardcoded 10 kb while naming its variables
-# `gr_SignalTrack_2kb`. The bins were 10 kb; only the names were wrong.)
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -57,10 +44,17 @@ t0 <- Sys.time()
 data <- build_breast80_dataset(tilewidth = TILEWIDTH, verbose = TRUE)
 
 v <- SignaturePPF_validate(data)
-message(sprintf("\n%s mutations | %d samples | %d covariates | %s bins",
-                format(v$N, big.mark = ","), v$J, v$p,
-                format(v$nbins, big.mark = ",")))
-message("covariates: ", paste(colnames(v$SignalTrack), collapse = ", "))
+summary_line <- sprintf("\n%s mutations | %d samples | %d covariates | %s bins",
+                        format(v$N, big.mark = ","), v$J, v$p,
+                        format(v$nbins, big.mark = ","))
+covariate_line <- paste(colnames(v$SignalTrack), collapse = ", ")
+## v is a processed copy of the whole cohort. The contract is checked and the
+## numbers are out of it, so let it go - the ICGC object gets loaded just below
+## for the grid comparison, and there is no reason to hold both.
+rm(v); invisible(gc())
+
+message(summary_line)
+message("covariates: ", covariate_line)
 
 # The replication analysis puts this cohort and ICGC side by side, so the two
 # grids have to agree. Checked here rather than discovered three minutes into

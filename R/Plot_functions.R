@@ -21,16 +21,6 @@ SIG_COLS <- c(
 
 
 #' Colours for the alluvial diagrams
-#'
-#' Deliberately NOT [SIG_COLS]. The alluvial reads as stacked bands rather than
-#' as separated points, so what matters is that vertically adjacent signatures
-#' separate; elsewhere the grouping by aetiology is worth more. Kept as its own
-#' table so the two can be tuned independently.
-#'
-#' The last four are additions - the original palette named eleven signatures,
-#' and all fifteen are drawn here since the refit holds them all. Greens because
-#' nothing else in the table is green, and a dark pink for SBS17a so it pairs
-#' with SBS17b without colliding with SBS1.
 ALLUVIAL_SIG_COLS <- c(
   SBS13  = "darkblue",
   SBS5   = "#4959C7",
@@ -51,24 +41,55 @@ ALLUVIAL_SIG_COLS <- c(
 
 
 #' Colours for a set of signatures, falling back for anything not in SIG_COLS
-#'
-#' SIG_COLS only names the COSMIC signatures the breast analyses report. A de
-#' novo fit labels its signatures SigN01, SigN02, ... and would otherwise fall
-#' through the manual scale with a warning and no colour at all.
 sig_palette <- function(sigs) {
-  out <- SIG_COLS[sigs]
+  out <- ALLUVIAL_SIG_COLS[sigs]
   gap <- is.na(out)
   if (any(gap)) out[gap] <- grDevices::hcl.colors(sum(gap), "Dark 3")
   stats::setNames(unname(out), sigs)
 }
 
 
+#' Colours for the genomic covariates, grouped by what they measure
+COV_COLS <- c(
+  # Sequence-level / neutral covariate
+  "GC"        = "#7F7F7F",  # gray
+
+  # DNA methylation
+  "Methyl"    = "magenta",  # purple
+
+  # Insulator / architectural protein
+  "CTCF"      = "#8C510A",  # brown
+
+  # Repressive histone marks (heterochromatin) - blue family
+  "H3K9me3"   = "#08519C",  # dark blue  (constitutive heterochromatin)
+  "H3K27me3"  = "#6BAED6",  # light blue (facultative heterochromatin/Polycomb)
+
+  # Active promoter/enhancer marks - green family
+  "H3K27ac"   = "#238B45",  # medium green (active enhancer/promoter)
+  "H3K4me1"   = "#74C476",  # light green  (enhancer)
+  "H3K4me3"   = "#00441B",  # dark green   (active promoter)
+
+  # Transcription elongation mark - distinct, own family
+  "H3K36me3"  = "orange",   # orange (gene body / elongation)
+
+  # Replication timing
+  "RepliTime" = "darkblue",
+
+  # Nucleosome occupancy
+  "NuclOccup" = "gold"
+)
+
+
+#' Colours for a set of covariates, in the order given
+cov_palette <- function(covs) {
+  out <- COV_COLS[covs]
+  gap <- is.na(out)
+  if (any(gap)) out[gap] <- grDevices::hcl.colors(sum(gap), "Dark 3")
+  stats::setNames(unname(out), covs)
+}
+
+
 #' One panel per signature: relevance weight against mutations attributed
-#'
-#' A compact companion to a beta heatmap. Point size is \eqn{\mu_k}, fill is the
-#' number of mutations the signature wins, and a cross marks signatures the
-#' compressive prior has switched off, so a coefficient row can be read together
-#' with whether its signature is actually carrying anything.
 #'
 #' @param df_Assign A data frame from [df_assign()].
 #' @param levs Signature order, normally `colnames(fit$Betas)` so the panels line
@@ -107,19 +128,27 @@ plot_vector_facets_x <- function(df_Assign, levs, mu_cutoff = 0.05) {
 
 #' Coefficient agreement between two cohorts
 #'
-#' One point per (signature, covariate), the coefficient in cohort A against
-#' cohort B. Signatures switched off in BOTH cohorts are dropped - their
-#' coefficients are prior draws and comparing them measures nothing - and
-#' signatures present in only one are drawn hollow, since they are not
-#' comparable either.
 #'
 #' @param fit_x,fit_y The two fits.
 #' @param label_x,label_y Axis labels.
 #' @param mu_tol A signature counts as present when `mu` exceeds this.
+#' @param colour_by Colour the points by `"signature"` or by `"covariate"`.
+#' @param facet_by One panel per `"covariate"` or per `"signature"`; `"none"`
+#'   draws them together. Scales stay fixed across panels - the y = x line is
+#'   the reference the whole figure is read against, and free scales would put a
+#'   different one in every panel.
+#' @param ncol Panels per row when faceting. `NULL` lets ggplot2 choose.
 #' @param inset Add a zoomed inset over the region where most coefficients lie.
+#'   Ignored when faceting: the inset magnifies one region of one panel, and
+#'   there is no single such region once the points are split up.
 plot_beta_replication <- function(fit_x, fit_y, label_x = "Cohort A",
                                   label_y = "Cohort B", mu_tol = 0.01,
+                                  colour_by = c("signature", "covariate"),
+                                  facet_by = c("none", "covariate", "signature"),
+                                  ncol = NULL,
                                   inset = TRUE, zoom = 0.1) {
+  colour_by <- match.arg(colour_by)
+  facet_by <- match.arg(facet_by)
   sigs <- intersect(colnames(fit_x$Betas), colnames(fit_y$Betas))
   present_x <- fit_x$Mu[sigs] > mu_tol
   present_y <- fit_y$Mu[sigs] > mu_tol
@@ -137,22 +166,53 @@ plot_beta_replication <- function(fit_x, fit_y, label_x = "Cohort A",
   d$status <- ifelse(!(d$sig %in% shared), "present in one cohort",
                      ifelse(sign(d$x) == sign(d$y), "sign agrees", "sign flips"))
   d$sig <- factor(d$sig, levels = keep)
+  # Model order, not alphabetical: the legend then reads down the covariates in
+  # the order the coefficient rows appear everywhere else.
+  d$feature <- factor(d$feature, levels = rownames(fit_x$Betas))
+
+  # The only thing that varies between the two modes is which column the colour
+  # comes from and the palette it is looked up in. Both are fixed by name, so a
+  # signature or a covariate keeps its colour across every figure in the paper.
+  if (colour_by == "signature") {
+    d$colour_key <- d$sig
+    cols <- sig_palette(levels(d$sig))
+    colour_lab <- "Signature"
+  } else {
+    d$colour_key <- d$feature
+    cols <- cov_palette(levels(d$feature))
+    colour_lab <- "Covariate"
+  }
 
   p <- ggplot2::ggplot(d, ggplot2::aes(.data$x, .data$y)) +
     ggplot2::geom_hline(yintercept = 0, colour = "grey55", linetype = 3) +
     ggplot2::geom_vline(xintercept = 0, colour = "grey55", linetype = 3) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey60") +
-    ggplot2::geom_point(ggplot2::aes(colour = .data$sig, shape = .data$status),
+    ggplot2::geom_point(ggplot2::aes(colour = .data$colour_key,
+                                     shape = .data$status),
                         size = 1, stroke = 1) +
     ggplot2::scale_shape_manual(values = c("sign agrees" = 19,
                                            "sign flips" = 4,
                                            "present in one cohort" = 1)) +
-    ggplot2::scale_colour_manual(values = sig_palette(levels(d$sig)),
-                                 breaks = levels(d$sig)) +
+    ggplot2::scale_colour_manual(values = cols, breaks = levels(d$colour_key)) +
     ggplot2::labs(x = bquote(beta ~ "(" * .(label_x) * ")"),
                   y = bquote(beta ~ "(" * .(label_y) * ")"),
-                  colour = "Signature", shape = NULL) +
-    ggplot2::theme_bw() +
+                  colour = colour_lab, shape = NULL) +
+    ggplot2::theme_bw()
+
+  if (facet_by != "none") {
+    by <- if (facet_by == "covariate") "feature" else "sig"
+    # The colour legend is redundant with the strips when it names the same
+    # thing the panels do, so it is dropped in that case.
+    if ((facet_by == "covariate" && colour_by == "covariate") ||
+        (facet_by == "signature" && colour_by == "signature")) {
+      p <- p + ggplot2::guides(colour = "none")
+    }
+    return(p + ggplot2::facet_wrap(by, ncol = ncol, scales = "free"))
+  }
+
+  # The rectangle exists to show what the inset magnifies, so it is drawn only
+  # when there is an inset to magnify it.
+  p <- p +
     ggplot2::annotate("rect", xmin = -zoom, xmax = zoom, ymin = -zoom, ymax = zoom,
                       fill = NA, colour = "grey40", linetype = 2)
 
@@ -172,15 +232,6 @@ plot_beta_replication <- function(fit_x, fit_y, label_x = "Cohort A",
 
 
 #' Coefficient of each covariate along a sequence of nested models
-#'
-#' One panel per covariate, showing what happens to its coefficient as further
-#' covariates are added to the model. A coefficient that moves little across the
-#' sequence is one the other covariates do not explain away.
-#'
-#' Only signatures the compressive prior keeps in EVERY model are drawn. For a
-#' switched-off signature \eqn{\beta} is a draw from its prior, so a trajectory
-#' that includes one would show the prior wandering rather than an estimate
-#' changing.
 #'
 #' @param fits The fitted models, in the order the covariates were added. Each
 #'   must be a fit whose `Betas` rows are the covariates it was given.
@@ -227,11 +278,6 @@ plot_beta_path <- function(fits, covariate_order, mu_cutoff = 0.05) {
 
 
 #' How mutation attribution flows as covariates are added
-#'
-#' An alluvial diagram over a sequence of models: each stratum is the set of
-#' mutations a model attributes to one signature, and a ribbon between two
-#' columns is a set of mutations that moved. The percentage above each column is
-#' the share of mutations that changed signature when that covariate entered.
 #'
 #' @param A A character matrix, mutations in rows and models in columns, holding
 #'   the signature each model attributes each mutation to.
@@ -289,9 +335,6 @@ plot_assignment_alluvial <- function(A, labels, levs = NULL,
 
 #' Per-patient predictive error along a sequence of nested models
 #'
-#' One box per model and sample split, so the in-sample and out-of-sample curves
-#' can be read against each other: covariates that only fit noise improve the
-#' first while leaving the second flat or worse.
 #'
 #' @param rmse A data frame with `model`, `patient`, `in_sample`, `out_sample`.
 #' @param labels Model labels, one per level of `model`.

@@ -1,0 +1,114 @@
+"donor","PD","project","sex","age","vital","survival","last_followup","therapy","grade","stage","histology","cellularity","T_stage"
+"DO1001","PD3890","BRCA-UK","female",41,NA,NA,NA,"other therapy",NA,NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1002","PD3904","BRCA-UK","female",39,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1003","PD3905","BRCA-UK","female",34,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1004","PD3945","BRCA-UK","female",59,"deceased",NA,0,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1005","PD4005","BRCA-UK","female",39,"alive",NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1006","PD4006","BRCA-UK","female",39,"deceased",NA,0,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1007","PD4085","BRCA-UK","female",64,"alive",NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1008","PD4086","BRCA-UK","female",58,"deceased",NA,0,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1009","PD4088","BRCA-UK","female",32,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1010","PD4109","BRCA-UK","female",67,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1011","PD4115","BRCA-UK","female",54,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1012","PD4116","BRCA-UK","female",32,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1013","PD4192","BRCA-UK","female",NA,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1015","PD4198","BRCA-UK","female",NA,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1016","PD4199","BRCA-UK","female",NA,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1017","PD4248","BRCA-UK","female",49,"deceased",NA,0,"surgery","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1018","PD4103","BRCA-UK","female",46,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1020","PD4107","BRCA-UK","female",33,NA,NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO1076","PD4120","BRCA-UK","female",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+"DO217786","PD4965","BRCA-EU","female",86,"deceased",NA,0,"radiation therapy","G3","T2N2M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217787","PD4970","BRCA-EU","female",89,NA,NA,NA,"no treatment","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO217788","PD5936","BRCA-EU","female",76,NA,NA,NA,"radiation therapy","G3","T1N1Mx","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO217800","PD7216","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO217826","PD3989","BRCA-EU","female",39,NA,NA,NA,"chemotherapy","G3","T2N0Mx","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217844","PD4607","BRCA-EU","female",47,"alive",NA,NA,"radiation therapy","G2","T3N1M0","Infiltrating duct carcinoma, NOS",NA,"T3"
+"DO217865","PD9569","BRCA-EU","female",79,"alive",NA,NA,"chemotherapy","G3","T2N2M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217887","PD7208","BRCA-EU","female",NA,NA,NA,NA,"chemotherapy",NA,NA,NA,NA,NA
+"DO217907","PD6422","BRCA-EU","female",65,"alive",NA,NA,"other therapy","G3","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO217908","PD4266","BRCA-EU","female",55,"alive",NA,NA,"radiation therapy","G1","T2N0Mx","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217931","PD9599","BRCA-EU","female",58,"alive",NA,NA,"chemotherapy","G3","T2N0Mx","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217934","PD4963","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO217939","PD4069","BRCA-EU","female",47,"alive",NA,NA,"radiation therapy","G2","T2NxM0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217952","PD7433","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO217953","PD7218","BRCA-EU","female",43,"alive",NA,NA,"chemotherapy","G1","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO217962","PD4982","BRCA-EU","female",48,"alive",NA,NA,"chemotherapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO217987","PD4971","BRCA-EU","female",44,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218059","PD4613","BRCA-EU","female",42,"alive",NA,NA,"radiation therapy","G1","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218060","PD4608","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO218065","PD4224","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO218072","PD9570","BRCA-EU","female",38,"alive",NA,NA,"chemotherapy","G1","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218121","PD4267","BRCA-EU","female",48,"alive",NA,NA,"radiation therapy","G1","T1N0Mx","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218150","PD4959","BRCA-EU","female",73,"alive",NA,NA,"radiation therapy","G3","T1N1M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218159","PD9605","BRCA-EU","female",61,"alive",NA,NA,"chemotherapy","G3","T2N1Mx","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218168","PD5956","BRCA-EU","female",51,"deceased",NA,0,"chemotherapy","G3","T2N1MX","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218173","PD4072","BRCA-EU","female",59,"alive",NA,NA,"radiation therapy","G2","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218174","PD7209","BRCA-EU","female",48,"alive",NA,NA,"no treatment","G2","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218176","PD7219","BRCA-EU","female",39,"alive",NA,NA,"chemotherapy","G2","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218182","PD4983","BRCA-EU","female",77,"alive",NA,NA,"radiation therapy","G2","T2N1M0","Intraductal papillary adenocarcinoma with invasion",NA,"T2"
+"DO218205","PD4967","BRCA-EU","female",59,"alive",NA,NA,"chemotherapy","G2","T3N2M0","Infiltrating duct carcinoma, NOS",NA,"T3"
+"DO218212","PD4953","BRCA-EU","female",67,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218254","PD6417","BRCA-EU","female",46,"alive",NA,NA,"radiation therapy","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218333","PD9000","BRCA-EU","female",51,"alive",NA,NA,"chemotherapy","G3","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218347","PD7199","BRCA-EU","female",35,"alive",NA,NA,"no treatment","G2","T1N0MX","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218384","PD9573","BRCA-EU","female",64,"alive",NA,NA,"chemotherapy","G1","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218388","PD4986","BRCA-EU","female",56,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218404","PD6719","BRCA-EU","female",55,"deceased",NA,0,"other therapy","G3","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218408","PD7210","BRCA-EU","female",42,"alive",NA,NA,"chemotherapy","G2","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218419","PD4954","BRCA-EU","female",51,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218428","PD4968","BRCA-EU","female",84,"alive",NA,NA,"no treatment","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218457","PD7214","BRCA-EU","female",64,"alive",NA,NA,"chemotherapy","G2","T3N1M0","Infiltrating duct carcinoma, NOS",NA,"T3"
+"DO218489","PD8623","BRCA-EU","female",45,NA,NA,NA,"no treatment","G2","T1N0Mx","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218502","PD4605","BRCA-EU","female",56,"alive",NA,NA,"radiation therapy","G3","T2N2M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218506","PD6041","BRCA-EU","female",66,"alive",NA,NA,"chemotherapy","G2","T1N3M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218553","PD9001","BRCA-EU","female",59,"alive",NA,NA,"chemotherapy","G2","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218560","PD9572","BRCA-EU","female",58,"alive",NA,NA,"chemotherapy","G2","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218573","PD9567","BRCA-EU","female",48,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218583","PD9574","BRCA-EU","female",63,"alive",NA,NA,"chemotherapy","G2","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218605","PD7206","BRCA-EU","female",60,"alive",NA,NA,"chemotherapy","G2","T3N1M0","Infiltrating duct carcinoma, NOS",NA,"T3"
+"DO218611","PD6720","BRCA-EU","female",49,"alive",NA,NA,"chemotherapy","G1","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218621","PD7221","BRCA-EU","female",64,"alive",NA,NA,"radiation therapy","G2","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218651","PD5947","BRCA-EU","female",38,NA,NA,NA,"other therapy","G3","T1N0Mx","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218656","PD5928","BRCA-EU","female",41,NA,NA,NA,"other therapy","G3","T2N2M2","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218669","PD7215","BRCA-EU","female",76,"alive",NA,NA,"no treatment","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218684","PD6049","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO218698","PD4606","BRCA-EU","female",44,"alive",NA,NA,"radiation therapy","G2","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218709","PD6042","BRCA-EU","female",59,"alive",NA,NA,"chemotherapy","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218719","PD9577","BRCA-EU","female",66,"alive",NA,NA,"other therapy","G1","T2N0Mx","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218736","PD7212","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO218742","PD4315","BRCA-EU","female",45,"deceased",NA,0,"other therapy","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218770","PD7201","BRCA-EU","female",52,"alive",NA,NA,"chemotherapy","G3","T1N0MX","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218796","PD4962","BRCA-EU","female",34,"alive",NA,NA,"chemotherapy",NA,NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO218827","PD4981","BRCA-EU","female",49,"alive",NA,NA,"chemotherapy","G2","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO218828","PD4976","BRCA-EU","female",50,"deceased",NA,0,"chemotherapy","G3","T1N1M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO218831","PD6721","BRCA-EU","female",64,"alive",NA,NA,"other therapy","G3","T2N1M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO220821","PD4080","BRCA-EU","female",NA,NA,NA,NA,"no treatment",NA,NA,NA,NA,NA
+"DO220822","PD4225","BRCA-EU","female",51,"alive",NA,NA,"other therapy","G2","T1N0M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO220823","PD6043","BRCA-EU","female",82,"alive",NA,NA,"radiation therapy","G3","T2N2M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO220824","PD7207","BRCA-EU","female",63,"alive",NA,NA,"chemotherapy","G2","T2N0M0","Infiltrating duct carcinoma, NOS",NA,"T2"
+"DO220828","PD9002","BRCA-EU","female",57,"alive",NA,NA,"chemotherapy","G3","T1N1M0","Infiltrating duct carcinoma, NOS",NA,"T1"
+"DO52538","PD4255","BRCA-UK","female",59,"deceased",NA,0,"radiation therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52539","PD4836","BRCA-UK","female",39,NA,NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52540","PD4845","BRCA-UK","female",52,"deceased",NA,0,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52542","PD4980","BRCA-UK","female",61,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52543","PD5925","BRCA-UK","female",56,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52544","PD5942","BRCA-UK","female",43,NA,NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52545","PD5944","BRCA-UK","female",64,NA,NA,NA,"radiation therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52546","PD5950","BRCA-UK","female",65,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52547","PD6018","BRCA-UK","female",NA,NA,NA,NA,"other therapy",NA,NA,NA,NA,NA
+"DO52548","PD6046","BRCA-UK","female",41,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52549","PD6047","BRCA-UK","female",79,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52550","PD6409","BRCA-UK","female",46,"alive",NA,NA,"other therapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52551","PD6411","BRCA-UK","female",36,"alive",NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52552","PD6415","BRCA-UK","female",62,"alive",NA,NA,"other therapy",NA,NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52553","PD6722","BRCA-UK","female",30,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52554","PD7316","BRCA-UK","female",46,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52555","PD7321","BRCA-UK","female",68,"alive",NA,NA,"chemotherapy","G3",NA,NA,NA,NA
+"DO52556","PD8830","BRCA-UK","female",56,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52557","PD8964","BRCA-UK","female",41,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52558","PD8965","BRCA-UK","female",43,"alive",NA,NA,"chemotherapy","G2",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52559","PD9592","BRCA-UK","female",42,"alive",NA,NA,"combined chemo+radiation therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52560","PD11752","BRCA-UK","female",70,"alive",NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52561","PD13298","BRCA-UK","female",75,NA,NA,NA,"other therapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA
+"DO52562","PD13622","BRCA-UK","female",49,"alive",NA,NA,"chemotherapy","G3",NA,"Infiltrating duct carcinoma, NOS",NA,NA

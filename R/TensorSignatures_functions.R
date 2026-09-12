@@ -1,3 +1,5 @@
+## Produces: no figure. Helper file, sourced by the analysis scripts.
+
 ################################################################################
 # Helpers for the comparison against TensorSignatures (Vohringer et al.,
 # Nat Commun 2021).
@@ -292,6 +294,7 @@ export_ts_chromatin <- function(dataChrom, out_dir = DIR_TENSORSIG,
 read_ts_fit <- function(dir) {
   f_sig <- file.path(dir, "ts_signatures.tsv")
   f_amp <- file.path(dir, "ts_state_amplitudes.tsv")
+  f_key <- file.path(dir, "state_key.tsv")
   if (!file.exists(f_sig)) {
     warning("no TensorSignatures output in ", dir,
             " - run the sweep first (R/Comparison_TensorSignatures.R)")
@@ -302,7 +305,10 @@ read_ts_fit <- function(dir) {
   sig[[1]] <- NULL
   list(signatures = as.matrix(sig),
        amplitudes = if (file.exists(f_amp))
-         readr::read_tsv(f_amp, show_col_types = FALSE) else NULL)
+         readr::read_tsv(f_amp, show_col_types = FALSE) else NULL,
+       state_key = if (file.exists(f_key))
+         readr::read_tsv(f_key, show_col_types = FALSE) else NULL,
+       dir = dir)
 }
 
 
@@ -388,25 +394,39 @@ hungarian_match_signatures <- function(S_ts, S_ppf) {
 }
 
 
-#' Put both methods' chromatin-state effects on one scale and join them
-#'
-#' TS amplitudes are relative to ITS state 1, so they are re-referenced to the
-#' PPF reference state before joining.
-#'
-#' @param mu_min Drop PPF signatures whose relevance weight falls below this.
-#'   The compressive prior parks an unsupported signature near `epsilon`, and its
-#'   coefficients are then draws from the prior rather than estimates - so
-#'   comparing them against a TensorSignatures amplitude measures the prior. The
-#'   drop happens BEFORE the matching, not after: the assignment is one-to-one,
-#'   so a dead PPF signature left in the pool can win a TS signature and displace
-#'   a live one, and filtering the result afterwards would leave that TS
-#'   signature unpaired rather than paired correctly.
-compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies",
-                                      mu_min = 0.05) {
-  ts <- read_ts_fit(ts_dir)
-  if (is.null(ts)) return(NULL)
+################################################################################
+# 5b. Labels
+#
+#    Neither method labels its signatures meaningfully. PPF numbers them in
+#    whatever order the initialisation happened to put them; TensorSignatures in
+#    whatever order TensorFlow happened to converge to. Two panels side by side
+#    are only readable if "01" means the same thing in both, so both are
+#    renumbered: PPF by decreasing relevance weight with relabel_by_mu() in
+#    Utils_functions.R, and TensorSignatures by which PPF signature it matches,
+#    below.
+################################################################################
 
-  live <- colnames(fit$Signatures)[fit$Mu[colnames(fit$Signatures)] >= mu_min]
+#' Match TensorSignatures to a mu-ordered PPF fit and renumber it to agree
+#'
+#' `TS01` becomes whichever TS signature the Hungarian assignment pairs with
+#' `SigN01`, `TS02` the partner of `SigN02`, and so on - so the two methods can
+#' be drawn side by side with the panels lining up.
+#'
+#' Dead PPF signatures are dropped BEFORE the matching, not after. The assignment
+#' is one-to-one, so a signature the compressive prior has switched off can win a
+#' TS signature and displace a live one; filtering afterwards would leave that TS
+#' signature unpaired rather than paired correctly. Its coefficients are draws
+#' from the prior in any case, so comparing them against a TS amplitude would
+#' measure the prior.
+#'
+#' @param ts Output of [read_ts_fit()].
+#' @param fit A fit already renumbered by [relabel_by_mu()] - the live signatures
+#'   have to be a prefix for the TS numbering to come out contiguous.
+#' @param mu_min Relevance weight below which a PPF signature counts as dead.
+#' @return A list of `ts` (renamed, and with its signature columns in the new
+#'   order), `match` (the matching table, carrying both TS labels), and `live`.
+match_and_relabel_ts <- function(ts, fit, mu_min = 0.05, prefix = "TS") {
+  live <- colnames(fit$Signatures)[fit$Mu >= mu_min]
   if (!length(live)) {
     stop("every PPF signature has mu < ", mu_min, ": nothing left to compare.",
          call. = FALSE)
@@ -416,21 +436,72 @@ compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies",
             ncol(fit$Signatures), " PPF signature(s) with mu < ", mu_min, ": ",
             paste(setdiff(colnames(fit$Signatures), live), collapse = ", "))
   }
+
+  map <- hungarian_match_signatures(ts$signatures,
+                                    fit$Signatures[, live, drop = FALSE])
+  unmatched_ppf <- attr(map, "unmatched_ppf")
+
+  # Index of each TS signature = index of its PPF partner. Anything TS found that
+  # PPF did not is numbered after the live block, in TensorSignatures' own order,
+  # so it is visibly an extra rather than silently occupying a matched slot.
+  idx   <- stats::setNames(match(map$ppf_sig, live), map$signature)
+  extra <- setdiff(colnames(ts$signatures), names(idx))
+  if (length(extra)) idx[extra] <- length(live) + seq_along(extra)
+  lab <- stats::setNames(sprintf("%s%02d", prefix, idx), names(idx))
+
+  o <- order(idx[colnames(ts$signatures)])
+  old_cols <- colnames(ts$signatures)[o]
+  ts$signatures <- ts$signatures[, o, drop = FALSE]
+  colnames(ts$signatures) <- unname(lab[old_cols])
+
+  # `signature` stays the join key against the amplitude table, so it has to hold
+  # the NEW label on both sides; the original is kept as `ts_original` because it
+  # is the only way back to the raw TensorSignatures output on disk.
+  if (!is.null(ts$amplitudes)) {
+    ts$amplitudes$signature <- unname(lab[ts$amplitudes$signature])
+  }
+  map$ts_original <- map$signature
+  map$signature   <- unname(lab[map$ts_original])
+  map <- map[order(match(map$ppf_sig, live)),
+             c("signature", "ppf_sig", "cosine", "ts_original")]
+
+  attr(map, "unmatched_ts")  <- unname(lab[extra])
+  attr(map, "unmatched_ppf") <- unmatched_ppf
+  attr(map, "dead_ppf")      <- setdiff(colnames(fit$Signatures), live)
+
+  list(ts = ts, match = map, live = live)
+}
+
+
+#' Put both methods' chromatin-state effects on one scale and join them
+#'
+#' TS amplitudes are relative to ITS state 1, so they are re-referenced to the
+#' PPF reference state before joining.
+#'
+#' @param ts Output of [read_ts_fit()], already renumbered by
+#'   [match_and_relabel_ts()].
+#' @param map The matching table from [match_and_relabel_ts()]. Passed in rather
+#'   than recomputed here: the matching depends on which PPF signatures are
+#'   considered live, so a second run of it inside this function could disagree
+#'   with the one the labels were built from, and the labels would then be a
+#'   quiet lie.
+compare_chromatin_effects <- function(fit, ts, map, reference = "Quies") {
+  if (is.null(ts)) return(NULL)
+
+  # `ppf_sig`, deliberately not `signature`: the amplitude table already has a
+  # `signature` column (the TS label) and a clash silently yields
+  # signature.x / signature.y.
+  live <- map$ppf_sig
   fit$Signatures <- fit$Signatures[, live, drop = FALSE]
   fit$Betas <- fit$Betas[, live, drop = FALSE]
   fit$Mu <- fit$Mu[live]
-  key <- readr::read_tsv(file.path(ts_dir, "state_key.tsv"), show_col_types = FALSE)
-  amp <- readr::read_tsv(file.path(ts_dir, "ts_state_amplitudes.tsv"),
-                         show_col_types = FALSE)
-
-  # `ppf_sig`, deliberately not `signature`: `amp` already has a `signature`
-  # column (the TS label) and a clash silently yields signature.x / signature.y.
-  map <- hungarian_match_signatures(ts$signatures, fit$Signatures)
+  amp <- ts$amplitudes
 
   # The Python side already writes a readable state `name`; only join the key
   # when it is missing, or the two `name` columns collide.
   if (!"name" %in% names(amp)) {
-    amp <- dplyr::left_join(amp, dplyr::select(key, .data$state, .data$name),
+    amp <- dplyr::left_join(amp,
+                            dplyr::select(ts$state_key, .data$state, .data$name),
                             by = "state")
   }
 
@@ -446,7 +517,7 @@ compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies",
                      cosine = .data$cosine,
                      ts_logratio = .data$log_ratio_vs_state1)
 
-  ts_eff$pair_label <- sprintf("%s ~ %s  (cos %.2f)", ts_eff$signature,
+  ts_eff$pair_label <- sprintf("%s ~ %s  (%.2f)", ts_eff$signature,
                                ts_eff$ts_signature, ts_eff$cosine)
 
   # Re-reference the TS amplitudes from ITS state 1 to the PPF reference state.
@@ -458,7 +529,11 @@ compare_chromatin_effects <- function(fit, ts_dir, reference = "Quies",
 
   res <- dplyr::inner_join(ppf_chromatin_effects(fit), ts_eff,
                            by = c("state", "signature"))
-  lev <- unique(res[order(-res$cosine), c("pair_label", "cosine")])$pair_label
+  # Panels in label order, i.e. by decreasing mu, NOT by decreasing cosine: the
+  # whole point of the renumbering is that panel i is the same process wherever
+  # it is drawn, so the order has to be a property of the signature rather than
+  # of how well it happened to match.
+  lev <- unique(res$pair_label[order(res$signature)])
   res$pair_label <- factor(res$pair_label, levels = lev)
   attr(res, "unmatched_ts") <- attr(map, "unmatched_ts")
   attr(res, "unmatched_ppf") <- attr(map, "unmatched_ppf")
@@ -546,6 +621,7 @@ score_mutation_rate <- function(rate) {
 plot_chromatin_betas <- function(fit, reference = "Quies") {
   df <- ppf_chromatin_effects(fit)
   df$state <- factor(df$state, levels = setdiff(CHROM_STATES, reference))
+  df$signature <- factor(df$signature, levels = colnames(fit$Betas))
   ggplot2::ggplot(df, ggplot2::aes(.data$state, .data$beta, fill = .data$state)) +
     ggplot2::geom_hline(yintercept = 0, colour = "grey40") +
     ggplot2::geom_col() +
@@ -614,38 +690,13 @@ plot_chromatin_effects <- function(cmp, by = c("signature", "state", "none"),
 
   p <- p +
     ggplot2::labs(x = "TensorSignatures log amplitude",
-                  y = expression(SignaturePPF ~ beta),
-                  title = switch(by,
-                                 none = "Chromatin-state effects",
-                                 state = "By chromatin state",
-                                 signature = "By signature")) +
+                  y = expression(SignaturePPF ~ beta)) +
     ggplot2::theme_bw()
 
   if (is.null(facet_var)) return(p)
 
-  # Correlation within each panel, which is the number the panel is there to
-  # show. Withheld below three points: a correlation over two points is 1 or -1
-  # by construction and says nothing.
-  lab <- do.call(rbind, lapply(split(cmp, cmp[[facet_var]]), function(z) {
-    if (!nrow(z)) return(NULL)
-    r <- if (nrow(z) >= 3) cor(z$beta, z$ts_logratio) else NA_real_
-    data.frame(f = as.character(z[[facet_var]][1]), n = nrow(z),
-               txt = if (is.na(r)) sprintf("n=%d", nrow(z))
-                     else sprintf("r=%.2f (n=%d)", r, nrow(z)),
-               stringsAsFactors = FALSE)
-  }))
-  names(lab)[1] <- facet_var
-  # Back to the factor the panels are keyed on, or the labels land in a set of
-  # extra panels of their own.
-  if (is.factor(cmp[[facet_var]])) {
-    lab[[facet_var]] <- factor(lab[[facet_var]], levels = levels(cmp[[facet_var]]))
-  }
-
   p + ggplot2::facet_wrap(stats::as.formula(paste("~", facet_var)), ncol = ncol,
-                          scales = if (free_scales) "free" else "fixed") +
-    ggplot2::geom_text(data = lab,
-                       ggplot2::aes(x = -Inf, y = Inf, label = .data$txt),
-                       hjust = -0.1, vjust = 1.4, size = 3, inherit.aes = FALSE)
+                          scales = if (free_scales) "free" else "fixed")
 }
 
 

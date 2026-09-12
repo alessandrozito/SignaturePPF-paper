@@ -1,0 +1,28 @@
+\begin{table}[th]
+\caption{Sensitivity of the \emph{de novo} fit to the maximum number of signatures $K_{\max}$ and to the prior on $\mu$. Each row is a single fit. \textsc{Selected} is the number of signatures retained after pruning, \textsc{Recovered} the number of the ten reference signatures whose one-to-one partner attains a cosine similarity of at least $0.9$, and \textsc{Mean cos.} the average cosine similarity over all matched pairs; the reference row is matched against itself and so attains ten and one by construction.}
+\centering
+\footnotesize
+\begin{adjustbox}{max width=1\textwidth,center}
+\begin{tabular}{|l|ccc|cccc|ccc|}
+\hline
+\multicolumn{1}{|c|}{\textsc{Scenario}} & \multicolumn{3}{c|}{\textsc{Setting}} & \multicolumn{4}{c|}{\textsc{Signatures}} & \multicolumn{3}{c|}{\textsc{Computation}} \\
+& $K_{\max}$ & $c_0$ & $d_0$ & \textsc{Selected} & \textsc{Recovered} & \textsc{Mean cos.} & $\min\mu$ & \textsc{Iterations} & \textsc{Sec./iter.} & \textsc{Hours} \\
+\hline
+Reference & 12 & 100 & 1 & 10 & 10 & 1.000 & 34.4 & 1890 & 10.7 & 5.60 \\
+\hline
+\texttt{K15} & 15 & 100 & 1 & 13 & 8 & 0.944 & 13.6 & 2270 & 16.1 & 10.14 \\
+\hline
+\texttt{K20} & 20 & 100 & 1 & 11 & 9 & 0.976 & 29.8 & 2110 & 16.4 & 9.64 \\
+\hline
+\texttt{K12\_c0\_10} & 12 & 10 & 0.1 & 12 & 10 & 0.981 & 28.0 & 1140 & 9.7 & 3.08 \\
+\hline
+\texttt{K12\_c0\_1} & 12 & 2 & 0.01 & 12 & 10 & 0.981 & 27.9 & 1130 & 9.1 & 2.87 \\
+\hline
+\texttt{K20\_c0\_10} & 20 & 10 & 0.1 & 11 & 9 & 0.976 & 30.5 & 2380 & 15.9 & 10.53 \\
+\hline
+\texttt{K20\_c0\_1} & 20 & 2 & 0.01 & 11 & 9 & 0.967 & 24.1 & 2870 & 15.8 & 12.57 \\
+\hline
+\end{tabular}
+\end{adjustbox}
+\label{tab:sensitivity_denovo}
+\end{table}

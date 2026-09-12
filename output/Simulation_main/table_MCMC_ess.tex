@@ -1,0 +1,36 @@
+\begin{table}[th]
+\caption{Computation time and effective sample sizes (ESS) for MCMC. Shown are averages across 20 datasets, with standard deviations in parentheses. ESS for $R$, $\Theta$, $B$, $\mu$ and $\sigma^2$ is calculated over the last 1500 draws; the log-posterior is recorded once every ten iterations, so its ESS is calculated over the 150 recorded values.}
+\centering
+\small
+\begin{adjustbox}{max width=1\textwidth,center}
+\begin{tabular}{|l|cc|cc|cc|cc|cc|cc|cc|}
+\hline
+\multicolumn{1}{|c|}{\textsc{Method}}
+& \multicolumn{2}{c|}{\textsc{Time (min)}}
+& \multicolumn{2}{c|}{\textsc{ESS} $R$}
+& \multicolumn{2}{c|}{\textsc{ESS} $\Theta$}
+& \multicolumn{2}{c|}{\textsc{ESS} $B$}
+& \multicolumn{2}{c|}{\textsc{ESS} $\mu$}
+& \multicolumn{2}{c|}{\textsc{ESS} $\sigma^2$}
+& \multicolumn{2}{c|}{\textsc{ESS} logPost}\\
+& \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} & \textsc{a} & \textsc{b} \\
+\hline
+\ref{simmod:add_MCMC}) MCMC,
+& 18 & 19 & 397 & 400 & 636 & 645 & 238 & 251 & 1403 & 1398 & 1488 & 1410 & 181 & 159 \\
+all $\bx$, $\Delta_b=100$
+& {\scriptsize (2)} & {\scriptsize (3)} & {\scriptsize (38)} & {\scriptsize (29)} & {\scriptsize (50)} & {\scriptsize (54)} & {\scriptsize (19)} & {\scriptsize (25)} & {\scriptsize (65)} & {\scriptsize (76)} & {\scriptsize (56)} & {\scriptsize (40)} & {\scriptsize (78)} & {\scriptsize (45)} \\
+\hline
+\ref{simmod:add_MCMC200}) MCMC,
+& 15 & 12 & 396 & 399 & 636 & 642 & 236 & 250 & 1392 & 1418 & 1474 & 1408 & 155 & 152 \\
+all $\bx$, $\Delta_b=200$
+& {\scriptsize (2)} & {\scriptsize (3)} & {\scriptsize (37)} & {\scriptsize (30)} & {\scriptsize (54)} & {\scriptsize (56)} & {\scriptsize (23)} & {\scriptsize (25)} & {\scriptsize (63)} & {\scriptsize (57)} & {\scriptsize (51)} & {\scriptsize (53)} & {\scriptsize (49)} & {\scriptsize (20)} \\
+\hline
+\ref{simmod:add_MCMC500}) MCMC,
+& 13 & 9 & 396 & 396 & 633 & 638 & 234 & 248 & 1419 & 1404 & 1459 & 1392 & 149 & 165 \\
+all $\bx$, $\Delta_b=500$
+& {\scriptsize (2)} & {\scriptsize (3)} & {\scriptsize (38)} & {\scriptsize (29)} & {\scriptsize (55)} & {\scriptsize (54)} & {\scriptsize (21)} & {\scriptsize (28)} & {\scriptsize (69)} & {\scriptsize (57)} & {\scriptsize (36)} & {\scriptsize (69)} & {\scriptsize (20)} & {\scriptsize (40)} \\
+\hline
+\end{tabular}
+\end{adjustbox}
+\label{tab:mcmc_results}
+\end{table}

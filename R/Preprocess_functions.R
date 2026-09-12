@@ -1,15 +1,9 @@
+## Helper file, sourced by the analysis scripts.
+
 ## Building a binned cohort object from the raw tracks.
 ##
 ## Carried over from the predecessor project's loader. One correctness fix, at
 ## `merge_with_tumor()` - see the note there.
-
-#' Usable sequence in each bin, after assembly gaps and the blacklist
-#'
-#' A bin is not worth its nominal width: assembly gaps are runs of N, and
-#' blacklisted regions are unmappable. Both are removed from the bin's weight,
-#' and a bin left with nothing is marked by a weight of zero so the caller can
-#' drop it. That weight is the exposure the Poisson process integrates over, so
-#' getting it wrong biases every intensity.
 add_bin_weights <- function(gr, blacklist_file = PATH_BLACKLIST,
                             gap_file = PATH_GAPS) {
   blacklist <- rtracklayer::import(blacklist_file)
@@ -233,8 +227,6 @@ call_mutation_channel <- function(
 
 #' Read a directory of CaVEMan VCFs into one GRanges of SNVs
 #'
-#' Only clean single-base substitutions are kept: an indel or a multi-allelic
-#' record has no trinucleotide channel, so it cannot enter the model.
 read_caveman_vcfs <- function(dir = PATH_BREAST80_SNV, tumor = "Breast80",
                               verbose = TRUE) {
   files <- list.files(dir, pattern = "\\.caveman\\.vcf$", full.names = TRUE)
