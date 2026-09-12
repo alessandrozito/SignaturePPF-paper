@@ -72,10 +72,11 @@ import tensorsignatures as ts
 
 # Kept in step with config.R: DIR_TENSORSIG. Both honour the same environment
 # variable, so moving the project needs no edit to either file.
-DEFAULT_DIR = os.path.join(
-    os.environ.get("SIGNATUREPPF_PAPER",
-                   os.path.expanduser("~/SignaturePPF-paper")),
-    "output", "Comparison_TensorSignatures")
+# The repository root: two levels up from this file (python/ -> repo), unless
+# SIGNATUREPPF_PAPER says otherwise.
+_REPO = os.environ.get("SIGNATUREPPF_PAPER") or os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DIR = os.path.join(_REPO, "output", "Comparison_TensorSignatures")
 
 # indices of the "unknown" strand state on the two strand axes (0-based)
 TX_UNK, REP_UNK = 2, 2

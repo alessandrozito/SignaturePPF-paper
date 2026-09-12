@@ -1,6 +1,5 @@
 ################################################################################
-# Produces: Figure 3, and Figures S5, S8 and S12.
-#           Also writes Figure S4, which FigureS4_signature_comparison.R now owns
+# Produces: Figure 3, and Figures S5, S8 and S12
 #
 # This file makes the plots for the denovo application.
 #
@@ -22,9 +21,8 @@ library(patchwork)
 # Load the package
 library(SignaturePPF)
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 load_functions()
 source(file.path(R_DIR, "Simulation_functions_main.R"))
 source(file.path(R_DIR, "Simulation_functions.R"))
@@ -305,10 +303,6 @@ out_SigAnalyzerL1KL <- readRDS(f_sigan_kl)
 out_SigAnalyzerL1W.L2H <- readRDS(f_sigan_l2)
 
 print(match_to_cosmic(BaselineNMF$Signatures))
-
-match_to_cosmic(BaselineNMF$Signatures)
-plot_Theta(BaselineNMF$Theta)
-
 print(match_to_cosmic(out_SigAnalyzerL1KL$Signature.norm))
 
 # Reconstruction of the count matrix under each model.
@@ -322,20 +316,8 @@ print(round(rmse, 2))
 write.csv(data.frame(model = names(rmse), rmse = as.numeric(rmse)),
           file.path(DIR_DENOVO, "count_matrix_rmse.csv"), row.names = FALSE)
 
-# Matched one-to-one against the PPF signatures so the three panels line up
-match_w_baseline <- match_MutSign(R_true = SigsMean,
-                                  R_hat = BaselineNMF$Signatures)
-colnames(match_w_baseline$R_hat) <- colnames(match_w_baseline$R_true)
-
-match_w_sigAnalyzer <- match_MutSign(R_true = SigsMean,
-                                     R_hat = out_SigAnalyzerL1KL$Signature.norm)
-colnames(match_w_sigAnalyzer$R_hat) <- colnames(match_w_sigAnalyzer$R_true)
-
-plot_Signatures(match_w_baseline$R_true) +
-  plot_Signatures(match_w_baseline$R_hat) +
-  plot_Signatures(match_w_sigAnalyzer$R_hat)
-ggsave(file.path(FIG_DIR, "Breast_suppl_Signatures_comparison.pdf"),
-       width = 13.42, height = 5.64)
+# Figure S4 is drawn by R/FigureS4_signature_comparison.R, which reads the three
+# fits cached above.
 
 ################################################################################
 # Step 7 - Figure S4: effective sample sizes and the log posterior trace

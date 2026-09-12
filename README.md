@@ -34,6 +34,17 @@ rerun. See [data/README.md](data/README.md) and [output/README.md](output/README
 
 Runtimes and the reasoning behind each analysis are in [NOTES.md](NOTES.md).
 
+## Running everything
+
+```
+Rscript run_all.R              # the whole pipeline, in dependency order
+Rscript run_all.R --list       # the stages
+Rscript run_all.R figures      # just one stage
+```
+
+Stages skip work already on disk. Scripts can equally be run one at a time, as
+listed below.
+
 ## Data preprocessing
 
 * Build the ICGC Breast-AdenoCa cohort (2 kb for the applications, 10 kb for the replication)

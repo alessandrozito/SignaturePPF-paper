@@ -20,9 +20,8 @@ suppressPackageStartupMessages({
   library(rtracklayer)
 })
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 load_functions()
 
 args <- commandArgs(trailingOnly = TRUE)

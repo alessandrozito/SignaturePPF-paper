@@ -17,9 +17,8 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 
 calib <- read.csv(file.path(DIR_SIM_MISSPEC, "all_calibration.csv"))
 

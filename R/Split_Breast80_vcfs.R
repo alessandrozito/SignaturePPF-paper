@@ -32,9 +32,8 @@
 
 suppressPackageStartupMessages(library(data.table))
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 
 args   <- commandArgs(trailingOnly = TRUE)
 TABLE  <- if (length(args) >= 1) args[1] else PATH_BREAST80_CAVEMAN

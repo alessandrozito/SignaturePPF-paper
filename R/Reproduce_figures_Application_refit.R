@@ -21,9 +21,8 @@ library(AnnotationDbi)
 # Load the package
 library(SignaturePPF)
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 load_functions()
 source(file.path(R_DIR, "Simulation_functions_main.R"))
 

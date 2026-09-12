@@ -13,8 +13,25 @@
 ## to sit on a different volume - on a cluster it is usually too large for a home
 ## directory quota.
 
-PAPER_ROOT <- Sys.getenv("SIGNATUREPPF_PAPER",
-                         unset = path.expand("~/SignaturePPF-paper"))
+## The repository root. Taken from the location of this file, so the pipeline
+## runs from wherever the repository is checked out. SIGNATUREPPF_PAPER
+## overrides it.
+.ppf_root <- function() {
+  env <- Sys.getenv("SIGNATUREPPF_PAPER", unset = "")
+  if (nzchar(env)) return(normalizePath(env, mustWork = TRUE))
+  ## When config.R is source()d its path is on the innermost frame carrying an
+  ## `ofile`. Iterate inwards-out: a script that was itself source()d puts its
+  ## own path on an outer frame, which would resolve to R/ instead of the root.
+  for (fr in rev(sys.frames())) {
+    of <- fr$ofile
+    if (!is.null(of)) return(normalizePath(dirname(of), mustWork = TRUE))
+  }
+  ## sourced some other way: fall back to the working directory
+  if (file.exists("config.R")) return(normalizePath(".", mustWork = TRUE))
+  stop("cannot locate the repository root; set SIGNATUREPPF_PAPER.",
+       call. = FALSE)
+}
+PAPER_ROOT <- .ppf_root()
 DATA_DIR   <- Sys.getenv("SIGNATUREPPF_DATA",
                          unset = file.path(PAPER_ROOT, "data"))
 

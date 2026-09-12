@@ -50,9 +50,8 @@ suppressPackageStartupMessages({
   library(parallel)
 })
 
-source(file.path(Sys.getenv("SIGNATUREPPF_PAPER",
-                            unset = path.expand("~/SignaturePPF-paper")),
-                 "config.R"))
+## Run from the repository root, or from R/.
+source(if (file.exists("config.R")) "config.R" else "../config.R")
 source(file.path(R_DIR, "Simulation_functions.R"))
 source(file.path(R_DIR, "Simulation_functions_misspec.R"))
 source(file.path(R_DIR, "Simulation_functions_main.R"))
