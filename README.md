@@ -23,6 +23,8 @@ vignette("getting-started", package = "SignaturePPF")
 
 Other packages used here: `tidyverse`, `patchwork`, `GenomicRanges`, `rtracklayer`,
 `BSgenome.Hsapiens.UCSC.hg19`, `ggalluvial`, `corrplot`, `RcppHungarian`, `RhpcBLASctl`.
+The exact versions the published results were computed under are recorded in
+[SESSIONINFO.txt](SESSIONINFO.txt); regenerate it with `Rscript make_sessioninfo.R`.
 
 Paths live in `config.R`, which every script sources. Set `SIGNATUREPPF_PAPER` if the
 repository is not at `~/SignaturePPF-paper`.
