@@ -26,8 +26,10 @@ Other packages used here: `tidyverse`, `patchwork`, `GenomicRanges`, `rtracklaye
 The exact versions the published results were computed under are recorded in
 [SESSIONINFO.txt](SESSIONINFO.txt); regenerate it with `Rscript make_sessioninfo.R`.
 
-Paths live in `config.R`, which every script sources. Set `SIGNATUREPPF_PAPER` if the
-repository is not at `~/SignaturePPF-paper`.
+Paths live in `config.R`, which every script sources. It locates the repository
+from its own position, so the code runs from wherever the repository is
+unpacked; set `SIGNATUREPPF_PAPER` to override, or `SIGNATUREPPF_DATA` to read
+the inputs from another volume.
 
 The data and the fitted models ship with the repository, so every figure can be
 redrawn without refitting. Two exceptions, both over GitHub's file size limit: the
